@@ -93,6 +93,34 @@ export const mock = {
       drivers: i % 2 ? ["Dual-banked (UBS + CS)", "Recent net outflows"] : ["Fee sensitivity", "KYC review pending"],
       play: `Relationship review + tailored mandate proposal for ${c.full_name}; offer a CIO portfolio health-check and discuss consolidated pricing.`,
     })),
+  retentionCampaign: (clientId: string): any => {
+    const c = mockClients.find((x) => x.client_id === clientId) ?? mockClients[2];
+    const dual = c.total_aum_usd > 5e7;
+    const drivers = dual ? ["Dual-banked (UBS + Credit Suisse)", "Net outflows over the last 6 months"] : ["Fee sensitivity", "Reduced transaction velocity"];
+    return {
+      client: { client_id: c.client_id, full_name: c.full_name, segment_tier: c.segment_tier, region: (c as any).region ?? "Switzerland", booking_centre: c.booking_centre, risk_profile: "Balanced", total_aum_usd: c.total_aum_usd, tenure_days: 3650, dual_banked: dual },
+      flight_risk: 0.82, drivers,
+      context: {
+        asset_mix: [{ asset_class: "equity", pct: 48 }, { asset_class: "fixed_income", pct: 22 }, { asset_class: "cash", pct: 18 }, { asset_class: "alternative", pct: 12 }],
+        household_whitespace: [{ product: "discretionary", household_signal: 3 }, { product: "alternative", household_signal: 2 }],
+        recent_net_flow_usd: -2400000, advisor: { name: "R. Brunner", desk: "UHNW & Family Office" }, flight_risk: 0.82,
+      },
+      campaign: {
+        objective: `Retain ${c.full_name} and reverse recent outflows by deepening the relationship.`,
+        retention_offer: "Complimentary CIO portfolio health-check + consolidated cross-bank pricing review.",
+        next_best_action: "Introduce a discretionary mandate (held by household members) to capture idle cash.",
+        preferred_channel: "Senior advisor call, followed by an in-person review",
+        talking_points: [
+          "Acknowledge the Credit Suisse integration and reassure on continuity of service",
+          "18% idle cash could be deployed into a discretionary mandate",
+          "Household members already hold discretionary & alternatives — offer parity",
+          "Consolidated pricing to address fee sensitivity",
+        ],
+        email_subject: "Bringing your UBS & Credit Suisse relationships together — a portfolio review",
+        email_body: `Dear ${c.full_name.split(" ")[0]},\n\nAs we complete the integration of UBS and Credit Suisse, I wanted to reach out personally to ensure your portfolio is working as hard as it can for you. I've noticed a meaningful cash balance we could put to work, and several solutions your wider household already benefits from that may suit your objectives. I'd welcome a short call to share our latest CIO views and a consolidated view of your relationships.\n\nWarm regards,\nR. Brunner, UBS`,
+      },
+    };
+  },
   forecast: (metric: string): ForecastResult => {
     const base = { nna: 22, aum: 780, revenue: 2.3 }[metric] ?? 50;
     let v = base;

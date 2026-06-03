@@ -35,6 +35,8 @@ export const api = {
     USE_MOCKS ? Promise.resolve(mock.retentionPipeline()) : get("/api/retention/pipeline"),
   retentionScores: (): Promise<RetentionScore[]> =>
     USE_MOCKS ? Promise.resolve(mock.retentionScores()) : get("/api/retention/scores"),
+  retentionCampaign: (clientId: string): Promise<any> =>
+    USE_MOCKS ? Promise.resolve(mock.retentionCampaign(clientId)) : get(`/api/retention/campaign/${clientId}`),
   forecast: (metric: string, division = "all", region = "all"): Promise<ForecastResult> =>
     USE_MOCKS ? Promise.resolve(mock.forecast(metric)) : get(`/api/forecast?metric=${metric}&division=${division}&region=${region}`),
   research: (q: string): Promise<DocHit[]> =>

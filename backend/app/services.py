@@ -57,6 +57,10 @@ def retention_scores():
     return _live("retention_scores") or fx.retention_scores()
 
 
+def retention_campaign(client_id: str):
+    return _live("retention_campaign", client_id) or fx.retention_campaign(client_id)
+
+
 def forecast(metric: str, division: str, region: str):
     return _live("forecast", metric, division, region) or fx.forecast(metric, division, region)
 

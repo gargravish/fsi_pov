@@ -50,6 +50,24 @@ def gen_text(prompt: str, max_tokens: int = 400) -> str:
         return f"(AI commentary unavailable: {e})"
 
 
+def gen_json(prompt: str) -> dict:
+    """Generate a JSON object with Gemini (structured output)."""
+    import json as _json
+    try:
+        from google.genai import types
+        resp = _genai().models.generate_content(
+            model=settings.GEMINI_MODEL, contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"))
+        return _json.loads(resp.text)
+    except Exception:
+        # fallback: strip fences from a plain text response
+        txt = gen_text(prompt).replace("```json", "").replace("```", "").strip()
+        try:
+            return _json.loads(txt)
+        except Exception:
+            return {}
+
+
 # ---------------------------------------------------------------------------
 def raw_overview() -> dict:
     c = _rows(f"""
@@ -221,6 +239,101 @@ def retention_scores() -> list[dict]:
             "drivers": drivers, "play": play,
         })
     return out
+
+
+def retention_campaign(client_id: str) -> dict:
+    """Build a targeted retention campaign for one client: pull their 360 via
+    GQL (household whitespace) + holdings/flows/advisor, then Gemini drafts the
+    objective, offer, next-best-action, talking points and a ready-to-send email."""
+    core = _rows(f"""
+      SELECT c.client_id, c.full_name, c.segment_tier, c.region, c.booking_centre,
+             c.risk_profile, c.total_aum_usd, c.tenure_days, c.dual_banked,
+             a.name AS advisor_name, a.desk AS advisor_desk,
+             s.flight_risk, s.outflow_ratio, s.recent_net_flow_usd
+      FROM `{DS}.clients` c
+      LEFT JOIN `{DS}.advisors` a ON c.primary_advisor_id = a.advisor_id
+      LEFT JOIN `{DS}.attrition_scores` s ON c.client_id = s.client_id
+      WHERE c.client_id = @c
+    """, {"c": client_id})
+    if not core:
+        return {}
+    c = core[0]
+
+    # GQL: what household-mates hold that this client lacks (cross-sell whitespace)
+    whitespace: list[dict] = []
+    try:
+        mate = _rows(f"""
+          SELECT * FROM GRAPH_TABLE(`{DS}.client_graph`
+            MATCH (me:Client)-[:BELONGS_TO]->(h:Household)<-[:BELONGS_TO]-(mate:Client)-[:HOLDS]->(a:Account)
+            WHERE me.client_id = '{client_id}'
+            RETURN a.account_type AS product, COUNT(*) AS signal
+            GROUP BY product ORDER BY signal DESC LIMIT 6)
+        """)
+        own = {r["account_type"] for r in _rows(
+            f"SELECT DISTINCT account_type FROM `{DS}.accounts` WHERE client_id='{client_id}'")}
+        whitespace = [{"product": m["product"], "household_signal": int(m["signal"])}
+                      for m in mate if m["product"] not in own]
+    except Exception:
+        pass
+
+    asset_mix = _rows(f"""
+      SELECT asset_class, ROUND(100*SUM(market_value_usd)/SUM(SUM(market_value_usd)) OVER (), 1) pct
+      FROM `{DS}.holdings` WHERE client_id='{client_id}'
+      GROUP BY asset_class ORDER BY pct DESC LIMIT 5
+    """)
+    flow = _rows(f"""
+      SELECT ROUND(SUM(net_new_money_usd)) net6m
+      FROM (SELECT net_new_money_usd FROM `{DS}.client_flows`
+            WHERE client_id='{client_id}' ORDER BY month DESC LIMIT 6)
+    """)
+    recent_net = float(flow[0]["net6m"]) if flow and flow[0]["net6m"] is not None else 0.0
+
+    drivers = []
+    if c["dual_banked"]:
+        drivers.append("Dual-banked (UBS + Credit Suisse)")
+    if (c["outflow_ratio"] or 0) > 0.55:
+        drivers.append("Elevated outflow ratio")
+    if recent_net < 0:
+        drivers.append("Net outflows over the last 6 months")
+    drivers = drivers or ["Behavioural risk factors"]
+
+    ctx = {
+        "asset_mix": [{"asset_class": a["asset_class"], "pct": float(a["pct"])} for a in asset_mix],
+        "household_whitespace": whitespace,
+        "recent_net_flow_usd": recent_net,
+        "advisor": {"name": c["advisor_name"], "desk": c["advisor_desk"]},
+        "flight_risk": round(float(c["flight_risk"] or 0), 3),
+    }
+
+    prompt = (
+        "You are a UBS retention strategist. Using ONLY the facts below, produce a targeted "
+        "retention campaign for this client as JSON with keys: objective (string), "
+        "retention_offer (string), next_best_action (string — base it on the household whitespace), "
+        "preferred_channel (string), talking_points (array of 3-4 short strings), "
+        "email_subject (string), email_body (string — a warm, compliant ~120-word advisor email, "
+        "no guarantees, signed by the advisor). Be specific and reference the client's holdings/flows.\n\n"
+        f"FACTS: {{'name':'{c['full_name']}','segment':'{c['segment_tier']}','region':'{c['region']}',"
+        f"'booking_centre':'{c['booking_centre']}','risk_profile':'{c['risk_profile']}',"
+        f"'total_aum_usd':{int(c['total_aum_usd'] or 0)},'tenure_years':{round((c['tenure_days'] or 0)/365,1)},"
+        f"'flight_risk':{ctx['flight_risk']},'drivers':{drivers},'recent_net_flow_usd_6m':{int(recent_net)},"
+        f"'asset_mix':{ctx['asset_mix']},'household_whitespace':{whitespace},"
+        f"'advisor':'{c['advisor_name']}'}}")
+    campaign = gen_json(prompt) or {
+        "objective": f"Retain {c['full_name']} and stabilise AuM",
+        "retention_offer": "Relationship review + consolidated pricing",
+        "next_best_action": (whitespace[0]["product"] if whitespace else "Portfolio review"),
+        "preferred_channel": "Advisor call", "talking_points": drivers,
+        "email_subject": "A quick review of your portfolio",
+        "email_body": "Dear client, I'd welcome the chance to review your portfolio together…",
+    }
+
+    return {
+        "client": {k: c[k] for k in ("client_id", "full_name", "segment_tier", "region",
+                                     "booking_centre", "risk_profile", "total_aum_usd",
+                                     "tenure_days", "dual_banked")},
+        "flight_risk": ctx["flight_risk"], "drivers": drivers,
+        "context": ctx, "campaign": campaign,
+    }
 
 
 def forecast(metric: str, division: str, region: str) -> dict:

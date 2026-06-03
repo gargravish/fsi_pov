@@ -47,6 +47,11 @@ def retention_scores():
     return services.retention_scores()
 
 
+@router.get("/retention/campaign/{client_id}")
+def retention_campaign(client_id: str):
+    return services.retention_campaign(client_id)
+
+
 @router.get("/forecast")
 def forecast(metric: str = "nna", division: str = "all", region: str = "all"):
     return services.forecast(metric, division, region)

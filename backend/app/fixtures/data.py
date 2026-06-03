@@ -189,6 +189,48 @@ def retention_scores() -> list[dict]:
     return sorted(out, key=lambda x: -x["flight_risk"])
 
 
+def retention_campaign(client_id: str) -> dict:
+    c = client_by_id(client_id)
+    drivers = ["Dual-banked (UBS + Credit Suisse)", "Net outflows over the last 6 months"] if c["dual_banked"] \
+        else ["Fee sensitivity", "Reduced transaction velocity"]
+    whitespace = [{"product": "discretionary", "household_signal": 3},
+                  {"product": "alternative", "household_signal": 2}]
+    return {
+        "client": {"client_id": c["client_id"], "full_name": c["full_name"], "segment_tier": c["segment_tier"],
+                   "region": c["region"], "booking_centre": c["booking_centre"], "risk_profile": c["risk_profile"],
+                   "total_aum_usd": c["total_aum_usd"], "tenure_days": 3650, "dual_banked": c["dual_banked"]},
+        "flight_risk": 0.82,
+        "drivers": drivers,
+        "context": {
+            "asset_mix": [{"asset_class": "equity", "pct": 48.0}, {"asset_class": "fixed_income", "pct": 22.0},
+                          {"asset_class": "cash", "pct": 18.0}, {"asset_class": "alternative", "pct": 12.0}],
+            "household_whitespace": whitespace,
+            "recent_net_flow_usd": -2400000,
+            "advisor": {"name": "R. Brunner", "desk": "UHNW & Family Office"},
+            "flight_risk": 0.82,
+        },
+        "campaign": {
+            "objective": f"Retain {c['full_name']} and reverse recent outflows by deepening the relationship.",
+            "retention_offer": "Complimentary CIO portfolio health-check + consolidated cross-bank pricing review.",
+            "next_best_action": "Introduce a discretionary mandate (held by household members) to capture idle cash.",
+            "preferred_channel": "Senior advisor call, followed by an in-person review",
+            "talking_points": [
+                "Acknowledge the Credit Suisse integration and reassure on continuity of service",
+                "18% idle cash could be deployed into a discretionary mandate",
+                "Household members already hold discretionary & alternatives — offer parity",
+                "Consolidated pricing to address fee sensitivity",
+            ],
+            "email_subject": "Bringing your UBS & Credit Suisse relationships together — a portfolio review",
+            "email_body": (f"Dear {c['full_name'].split()[0]},\n\nAs we complete the integration of UBS and "
+                           "Credit Suisse, I wanted to reach out personally to ensure your portfolio is working "
+                           "as hard as it can for you. I've noticed a meaningful cash balance that we could put to "
+                           "work, and several solutions your wider household already benefits from that may suit "
+                           "your objectives. I'd welcome a short call to share our latest CIO views and a "
+                           "consolidated view of your relationships.\n\nWarm regards,\nR. Brunner, UBS"),
+        },
+    }
+
+
 def forecast(metric: str, division: str, region: str) -> dict:
     base = {"nna": 22.0, "aum": 780.0, "revenue": 2.3}.get(metric, 50.0)
     hist, fc = [], []
