@@ -1,0 +1,7 @@
+# Live-mode dependencies (USE_BQ=true) — installed on top of requirements.txt
+google-cloud-bigquery>=3.20
+google-cloud-geminidataanalytics>=0.12
+google-genai>=0.3
+db-dtypes>=1.2
+bigframes>=1.0
+google-cloud-storage>=2.14

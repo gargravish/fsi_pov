@@ -1,0 +1,11 @@
+config {
+  type: "table",
+  schema: "UBS_POV",
+  name: "client_segments",
+  description: "Each client assigned to a behavioural segment (KMeans centroid).",
+  dependencies: ["client_kmeans"],
+  tags: ["segmentation"]
+}
+
+SELECT client_id, CENTROID_ID AS segment
+FROM ML.PREDICT(MODEL ${resolve("client_kmeans")}, TABLE ${ref("client_features")})

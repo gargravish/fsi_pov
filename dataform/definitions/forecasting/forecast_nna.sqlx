@@ -1,0 +1,18 @@
+config {
+  type: "table",
+  schema: "UBS_POV",
+  name: "forecast_nna",
+  description: "12-month Net-New-Money forecast by division x region (AI.FORECAST / TimesFM 2.5).",
+  tags: ["forecasting"]
+}
+
+SELECT * FROM AI.FORECAST(
+  (SELECT division, region, TIMESTAMP(month) AS month, net_new_money_usd_bn
+   FROM ${ref("ts_nna_monthly")}),
+  data_col => 'net_new_money_usd_bn',
+  timestamp_col => 'month',
+  id_cols => ['division', 'region'],
+  model => 'TimesFM 2.5',
+  horizon => 12,
+  confidence_level => 0.9
+)

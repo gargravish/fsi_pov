@@ -1,0 +1,17 @@
+config {
+  type: "operations",
+  schema: "UBS_POV",
+  name: "attrition_scores",
+  description: "Client flight-risk scores from the BQML attrition model (ML.PREDICT).",
+  hasOutput: true,
+  dependencies: ["attrition_model"],
+  tags: ["attrition"]
+}
+
+CREATE OR REPLACE TABLE ${self()} AS
+SELECT s.client_id, s.segment_tier, s.region, s.total_aum_usd, s.dual_banked,
+       s.recent_net_flow_usd, s.outflow_ratio, p.prob AS flight_risk
+FROM ML.PREDICT(MODEL ${resolve("attrition_model")},
+                TABLE ${ref("attrition_scoring")}) AS s,
+UNNEST(s.predicted_attrited_probs) AS p
+WHERE p.label = 1

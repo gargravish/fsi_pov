@@ -1,0 +1,30 @@
+config {
+  type: "table",
+  schema: "UBS_POV",
+  name: "client_features",
+  description: "Engineered numeric features per client for behavioural segmentation.",
+  tags: ["segmentation"]
+}
+
+WITH amix AS (
+  SELECT client_id,
+    SAFE_DIVIDE(SUM(IF(asset_class='equity', market_value_usd, 0)), SUM(market_value_usd)) AS equity_ratio,
+    SAFE_DIVIDE(SUM(IF(asset_class='fixed_income', market_value_usd, 0)), SUM(market_value_usd)) AS fi_ratio,
+    SAFE_DIVIDE(SUM(IF(asset_class='alternative', market_value_usd, 0)), SUM(market_value_usd)) AS alt_ratio
+  FROM ${ref("holdings")} GROUP BY client_id
+),
+txn AS (SELECT client_id, COUNT(*) AS n_txns FROM ${ref("transactions")} GROUP BY client_id),
+acc AS (SELECT client_id, COUNT(*) AS n_accounts FROM ${ref("accounts")} GROUP BY client_id)
+
+SELECT c.client_id,
+       c.tenure_days,
+       LN(c.total_aum_usd + 1) AS log_aum,
+       IFNULL(acc.n_accounts, 0) AS n_accounts,
+       IFNULL(txn.n_txns, 0) AS n_txns,
+       IFNULL(amix.equity_ratio, 0) AS equity_ratio,
+       IFNULL(amix.fi_ratio, 0) AS fi_ratio,
+       IFNULL(amix.alt_ratio, 0) AS alt_ratio
+FROM ${ref("clients")} c
+LEFT JOIN acc USING (client_id)
+LEFT JOIN txn USING (client_id)
+LEFT JOIN amix USING (client_id)

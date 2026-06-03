@@ -1,0 +1,13 @@
+config {
+  type: "operations",
+  schema: "UBS_POV",
+  name: "client_kmeans",
+  description: "BQML KMEANS behavioural-segmentation model (the BigFrames KMeans engine).",
+  hasOutput: true,
+  tags: ["segmentation"]
+}
+
+CREATE OR REPLACE MODEL ${self()}
+OPTIONS (model_type = 'KMEANS', num_clusters = 8, standardize_features = TRUE) AS
+SELECT tenure_days, log_aum, n_accounts, n_txns, equity_ratio, fi_ratio, alt_ratio
+FROM ${ref("client_features")}

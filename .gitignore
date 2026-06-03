@@ -1,0 +1,49 @@
+# ───────────────────────── Python ─────────────────────────
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ───────────────────────── Node / frontend ─────────────────────────
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# ───────────────────────── Secrets / local config ─────────────────────────
+# Live overrides & any real credentials never get committed.
+**/.env.local
+**/.env.*.local
+backend/.env
+*.key
+*.pem
+**/service-account*.json
+**/application_default_credentials.json
+# NOTE: frontend/.env (VITE_USE_MOCKS=true demo default) IS committed on purpose.
+
+# ───────────────────────── Generated synthetic data ─────────────────────────
+# Regenerate with: synthetic_data/make_all.py  (data also lives in BigQuery)
+synthetic_data/output/
+**/_truth/
+
+# ───────────────────────── Dataform ─────────────────────────
+dataform/.df-credentials.json
+dataform/node_modules/
+
+# ───────────────────────── Logs / tmp ─────────────────────────
+*.log
+.cache/
+tmp/
+
+# ───────────────────────── Local tooling ─────────────────────────
+.claude/
+
+# ───────────────────────── OS / editor ─────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

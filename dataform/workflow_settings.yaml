@@ -1,0 +1,5 @@
+defaultProject: raves-altostrat
+defaultLocation: us-central1
+defaultDataset: UBS_POV
+defaultAssertionDataset: UBS_POV_assertions
+dataformCoreVersion: 3.0.0

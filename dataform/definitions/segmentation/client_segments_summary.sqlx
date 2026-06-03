@@ -1,0 +1,31 @@
+config {
+  type: "table",
+  schema: "UBS_POV",
+  name: "client_segments_summary",
+  description: "Per-segment size, avg AuM, dominant asset class and attrition index. (Segment NAMES are added by the Data Scientist agent's Gemini step in infra/build_segments.py — Dataform materialises the structured stats; the LLM naming runs as the agent post-step.)",
+  tags: ["segmentation"]
+}
+
+WITH stats AS (
+  SELECT s.segment AS id,
+         COUNT(*) AS size,
+         ROUND(AVG(c.total_aum_usd), 2) AS avg_aum_usd,
+         AVG(f.equity_ratio) AS equity,
+         AVG(f.fi_ratio) AS fixed_income,
+         AVG(f.alt_ratio) AS alternative,
+         ROUND(AVG(IFNULL(a.flight_risk, 0)), 3) AS attrition_index
+  FROM ${ref("client_segments")} s
+  JOIN ${ref("clients")} c USING (client_id)
+  JOIN ${ref("client_features")} f USING (client_id)
+  LEFT JOIN ${ref("attrition_scores")} a USING (client_id)
+  GROUP BY id
+)
+SELECT id,
+       CONCAT('Segment ', CAST(id AS STRING)) AS label,  -- replaced by Gemini name
+       size, avg_aum_usd,
+       CASE GREATEST(equity, fixed_income, alternative)
+         WHEN equity THEN 'equity'
+         WHEN fixed_income THEN 'fixed_income'
+         ELSE 'alternative' END AS dominant_asset,
+       attrition_index
+FROM stats
