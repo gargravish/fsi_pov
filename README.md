@@ -6,9 +6,13 @@ UBS Helix takes the reality of the **UBS + Credit Suisse integration** — two b
 of everything, fragmented formats, overlapping clients — and turns it into a unified,
 conversational, agent-driven decision surface. Every screen is powered by a native
 **BigQuery AI** capability: autonomous embeddings, vector search, a client property
-graph, TimesFM forecasting, a TabularFM attrition model, Conversational Analytics, and
-grounded document RAG — all running *inside* the warehouse, with a **Data Engineering**
-agent and a **Data Scientist** agent collaborating over **A2A**.
+graph, TimesFM forecasting, a TabularFM/BQML attrition model, Conversational Analytics, and
+grounded document RAG — all running *inside* the warehouse.
+
+The agentic layer uses **real Google Cloud data agents**: the **Conversational Analytics
+agent** powers *Ask UBS*, and the genuine **Google Cloud Data Engineering Agent** (an A2A
+agent operating on a live **Dataform** workspace) is orchestrated alongside a BigQuery‑ML
+**Data Scientist** step — visible end‑to‑end in the *Agent Console* data‑lifecycle view.
 
 It runs in two modes:
 
@@ -30,27 +34,28 @@ It runs in two modes:
 | **Home** | What does the unified estate look like? | Federated KPIs across the two-bank estate |
 | **Unify & Resolve** | Can we collapse UBS + CS into one truth? | `AI.GENERATE_TABLE` mapping + autonomous embeddings + `VECTOR_SEARCH` entity resolution |
 | **Next-Best-Action** | What should this household hold next? | **Property graph** (GQL `MATCH`) + `VECTOR_SEARCH` look-alikes |
-| **Flight-Risk Sentinel** | Which clients will we lose, and what do we offer? | **TabularFM** attrition (boosted-tree default) + `AI.GENERATE` plays |
+| **Flight-Risk Sentinel** | Which clients will we lose — and the campaign to save them? | **TabularFM/BQML** attrition → click a client → **GQL** household 360 + holdings/flows → **Gemini** drafts a targeted campaign + ready-to-send email |
 | **Forecast Room** | Where are AuM / NNA / revenue heading? | `AI.FORECAST` (**TimesFM 2.5**) — zero-training, multi-series |
-| **Ask UBS** | Let anyone query the estate in English | **Conversational Analytics** (NL → text + table + chart + SQL) |
+| **Ask UBS** | Let anyone query the estate in English | **Conversational Analytics agent** (real) — streams thinking → text + table + chart + SQL |
 | **Research Brain** | Answer from CIO / KYC / suitability docs | Autonomous embeddings + `AI.SEARCH` grounded RAG |
-| **Network Guard** | Where is the financial-crime risk? | **Property graph** multi-hop GQL (layering / structuring / UBO) |
-| **Segment Studio** | What natural client groups exist? | **BigFrames** KMeans + `AI.GENERATE` naming |
-| **Agent Console** | One goal → the right specialists run it | **ADK** orchestrator + **A2A** (DE ⇄ DS agents) + BigQuery MCP |
+| **Network Guard** | Where is the financial-crime risk? | **Property graph** multi-hop GQL — click a pattern (structuring / UBO / cross-bank) → its subgraph + records |
+| **Segment Studio** | What natural client groups exist? | **BigFrames/BQML** KMeans + `AI.GENERATE` naming |
+| **Agent Console** | One goal → watch the personas coordinate | Data-lifecycle: Raw → **real Google DE Agent (A2A)** → **Data Scientist (BigQuery ML)** → **real Conversational Analytics agent** → Business User, each with live output + BigQuery/Dataform links |
 
 ---
 
 ## Use-case & capability flow
 
-This maps the end-to-end story: two fragmented legacy estates (UBS + Credit Suisse) flow
-into one BigQuery dataset, a set of **warehouse-native AI capabilities** turn that data into
-intelligence, and each capability powers a concrete **business use case** — all consumed through
-one conversational, agent-driven surface. Every box in the green layer is a BigQuery / Vertex AI
+Read it **bottom-up** — the foundation sits at the bottom and value rises to the users at the top:
+two fragmented legacy estates (UBS + Credit Suisse) land in one BigQuery dataset (the data
+foundation), a set of **warehouse-native AI capabilities** turn that data into intelligence,
+each capability powers a concrete **business use case**, and everything is consumed through one
+conversational, agent-driven surface. Every box in the blue layer is a BigQuery / Vertex AI
 primitive; there is **no separate vector DB, graph DB, feature store, or model-serving stack.**
 
 ```mermaid
-flowchart TD
-    %% ---------- Sources ----------
+flowchart BT
+    %% ---------- Sources (bottom: data foundation) ----------
     subgraph SRC["🏦 Two legacy estates — the Credit Suisse integration"]
         direction LR
         S1["UBS<br/>CSV · fixed-width<br/>Parquet · xlsx"]
@@ -134,53 +139,66 @@ flowchart TD
     class APP app;
 ```
 
-> **Read it top-down:** two banks' raw files → one warehouse → native AI primitives → business
-> outcomes → a single surface. The same `UBS_POV` dataset feeds every capability, and
-> Conversational Analytics + ADK/A2A agents sit on top so users set *intent* while the platform
-> does the heavy lifting.
+> **Read it bottom-up:** two banks' raw files → one warehouse → native AI primitives → business
+> outcomes → the users at the top. The same `UBS_POV` dataset feeds every capability, and the
+> Conversational Analytics + Data Engineering agents sit between the data and the user so people
+> set *intent* while the platform does the heavy lifting.
 
 ---
 
 ## Architecture
 
+Read **bottom-up** — the cloud foundation sits at the bottom and each layer *serves* the one
+above, up to the bankers and executives at the top.
+
 ```mermaid
-flowchart TB
-    B["🖥️ Browser"] -->|REST + SSE| FE["Frontend<br/>React 18 · TS · Vite · Tailwind<br/>(:5173, proxies /api → :8080)"]
-    FE -->|"/api/*"| API["Backend — FastAPI (:8080)<br/>config.USE_BQ → fixtures | live BigQuery"]
-
-    subgraph AGENTS["Agent layer (ADK + A2A)"]
-        direction LR
-        ORC["Orchestrator (ADK)"]
-        DE["Data Engineering agent"]
-        DS["Data Scientist agent"]
-        ORC <-->|A2A| DE
-        ORC <-->|A2A| DS
-        DE <-->|A2A| DS
-    end
-    API --- AGENTS
-    API -->|Conversational Analytics| CA["Gemini Data Analytics<br/>(Ask UBS)"]
-
-    AGENTS -->|"BigQuery MCP / google-cloud-bigquery"| BQ
-    API --> BQ
+flowchart BT
+    %% ===== bottom: cloud foundation =====
+    VX["☁️ Vertex AI<br/>Gemini 2.5 Flash · text-embedding-005"]
+    GCS["☁️ GCS gs://ubs_pov<br/>raw UBS/* + CreditSuisse/* + documents"]
+    DF["🛠️ Dataform — ubs_pov_pipeline<br/><i>pipeline lineage; the DE agent operates here</i>"]
 
     subgraph BQ["🗄️ BigQuery — dataset UBS_POV (us-central1)"]
         direction LR
         Z1["Curated Client 360"]
         Z2["Autonomous embeddings<br/>+ vector index"]
         Z3["Client property graph"]
-        Z4["TabularFM attrition<br/>TimesFM forecasts"]
+        Z4["BQML attrition · KMeans<br/>TimesFM forecasts"]
         Z5["AI.SEARCH doc index"]
     end
 
-    BQ -->|"remote models via<br/>us-central1.vertex_conn"| VX["Vertex AI<br/>Gemini 2.5 Flash · text-embedding-005"]
-    GCS["☁️ GCS gs://ubs_pov<br/>raw UBS/* + CreditSuisse/* + documents"] --> BQ
+    VX -->|"remote models via<br/>us-central1.vertex_conn"| BQ
+    GCS --> BQ
+
+    %% ===== middle: agents + backend =====
+    subgraph AGENTS["Agent layer"]
+        direction LR
+        ORC["Orchestrator (ADK)"]
+        DE["Data Engineering Agent<br/><b>real · Google Cloud · A2A</b>"]
+        DS["Data Scientist<br/>BigQuery ML"]
+        ORC <-->|A2A| DE
+        ORC <-->|A2A| DS
+    end
+    CA["💬 Conversational Analytics Agent<br/><b>real</b> · Ask UBS"]
+
+    BQ -->|"BigQuery MCP / SQL"| AGENTS
+    DF --> DE
+    BQ --> CA
+    AGENTS --> API["Backend — FastAPI (:8080)<br/>config.USE_BQ → fixtures | live"]
+    CA --> API
+
+    %% ===== top: app + users =====
+    API -->|"/api/* · REST + SSE"| FE["Frontend — React 18 · Vite · Tailwind (:5173)"]
+    FE --> USER["🧑‍💼 Bankers · advisors · executives"]
 
     classDef store fill:#0f3d2e,stroke:#10b981,color:#d1fae5;
     classDef svc fill:#0b3a53,stroke:#38bdf8,color:#e0f2fe;
     classDef ag fill:#3b1d4e,stroke:#c084fc,color:#f3e8ff;
-    class BQ,GCS,Z1,Z2,Z3,Z4,Z5 store;
-    class FE,API,CA,VX,B svc;
+    classDef user fill:#4a2c0b,stroke:#f59e0b,color:#fff7ed;
+    class BQ,GCS,VX,DF,Z1,Z2,Z3,Z4,Z5 store;
+    class FE,API,CA svc;
     class ORC,DE,DS ag;
+    class USER user;
 ```
 
 Everything AI/ML happens **in BigQuery** via one Cloud-resource connection to Vertex AI.
@@ -300,10 +318,13 @@ UBS/
 │   ├── setup_bq.sql            models · embeddings · vector index · property graph · KPIs
 │   ├── setup_ubs_attrition.sql attrition model + scoring + drivers + pipeline
 │   ├── setup_ubs_forecast.sql  AI.FORECAST (TimesFM) marts
+│   ├── build_segments.py       real BQML KMeans + Gemini segment naming
 │   ├── deploy_cloudrun.sh
 │   └── env.example
 ├── synthetic_data/             two-bank estate generator + GCS/BQ loaders
-├── backend/                    FastAPI (routers, bq.py, services, ADK/A2A agents, fixtures)
+├── dataform/                   Dataform pipeline (lineage) + deploy_dataform.py (REST push)
+├── backend/                    FastAPI (routers, bq.py, services, agents/, de_agent.py,
+│                               conversational.py, fixtures)
 └── frontend/                   React 18 + TS + Vite + Tailwind (10 routes)
 ```
 
@@ -312,8 +333,15 @@ UBS/
 ## Notes & caveats
 
 - **All data is synthetic.** No real UBS or Credit Suisse data is used.
-- **Preview features:** TabularFM ships as a documented headline with a GA boosted-tree
-  default in `setup_ubs_attrition.sql`; A2A is implemented in-process (swappable for the
-  `a2a` SDK). Autonomous embeddings use the GA `ML.GENERATE_EMBEDDING` path.
-- **Cost control:** keep `DATA_SCALE=1`; forecast/score outputs are cached in tables; the
-  backend falls back to fixtures on any live error so the demo never breaks.
+- **What's genuinely real vs. ours (be transparent in the room):**
+  - **Real Google products:** the **Conversational Analytics agent** (Ask UBS) and the
+    **Google Cloud Data Engineering Agent** (A2A, operating on the live Dataform workspace).
+  - **Real BigQuery execution:** embeddings, vector index, property graph, BQML KMeans +
+    attrition model, TimesFM forecasts — all openable in BigQuery and expressed as Dataform lineage.
+  - **Our code:** the Orchestrator routing and the Data Scientist step (real BigQuery compute,
+    not a packaged "DS agent" product — none is exposed in the API).
+- **Preview features:** TabularFM ships as a documented headline with a GA BQML default in
+  `setup_ubs_attrition.sql`; autonomous embeddings use the GA `ML.GENERATE_EMBEDDING` path.
+- **Cost / latency:** keep `DATA_SCALE=1`; forecast/score outputs are cached in tables; the
+  backend falls back to fixtures on any live error so the demo never breaks. A full Agent
+  Console run is ~60–100s (the DE and CA agents plan + run real BigQuery jobs) — pre-warm once.
