@@ -110,6 +110,19 @@ def ask(body: dict):
     return StreamingResponse(gen(), media_type="text/event-stream", headers=SSE_HEADERS)
 
 
+@router.post("/agents/ca/reply")
+def agents_ca_reply(body: dict):
+    """Resume a paused Conversational Analytics conversation with the human's reply."""
+    token = body.get("conv_token", "")
+    reply = body.get("reply", "")
+
+    def gen():
+        for item in orchestrator.continue_ca(token, reply):
+            yield _sse(item)
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
 @router.post("/agents/goal")
 async def agents_goal(body: dict):
     goal = body.get("goal", "")

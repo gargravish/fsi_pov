@@ -64,6 +64,10 @@ export const api = {
     }
     await stream("/api/agents/goal", { goal }, (o) => onEvent(o));
   },
+  agentsCaReply: async (convToken: string, reply: string, onEvent: (s: any) => void): Promise<void> => {
+    if (USE_MOCKS) { onEvent({ type: "done" }); return; }
+    await stream("/api/agents/ca/reply", { conv_token: convToken, reply }, (o) => onEvent(o));
+  },
 };
 
 async function stream(path: string, body: any, onMsg: (o: any) => void) {

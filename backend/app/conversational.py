@@ -79,74 +79,127 @@ def _result_rows(result) -> Tuple[List[str], List[List]]:
     return columns, rows
 
 
+def _clarification_text(cm) -> str:
+    """Flatten a ClarificationMessage's questions into a single prompt string."""
+    parts: List[str] = []
+    for q in getattr(cm, "questions", []) or []:
+        if isinstance(q, str):
+            parts.append(q)
+        else:
+            qp = getattr(q, "parts", None)
+            parts.append("".join(qp) if qp else (getattr(q, "text", None) or str(q)))
+    return " ".join(p.strip() for p in parts if p).strip()
+
+
+def _process(sm, seen_sql: set) -> Iterator[Dict]:
+    """Translate one streamed SystemMessage into UI block dicts. Emits a
+    {"type":"clarification"} block when the agent asks a question (typed
+    ClarificationMessage) so the caller can keep a human in the loop."""
+    which = sm._pb.WhichOneof("kind") if hasattr(sm, "_pb") else None
+
+    if which == "text":
+        tmsg = sm.text
+        ttype = getattr(tmsg, "text_type", None)
+        tval = int(ttype) if ttype is not None else None
+        parts = [p for p in (getattr(tmsg, "parts", []) or [])]
+        if tval == 1:  # FINAL_RESPONSE
+            text = "".join(parts).strip()
+            if text:
+                yield {"type": "text", "text": text}
+        elif tval == 3:  # FOLLOWUP_QUESTIONS
+            fups = [p.strip() for p in parts if p.strip()]
+            if fups:
+                yield {"type": "text", "text": "**Suggested follow-ups:** " + "  ·  ".join(fups)}
+        else:  # THOUGHT / unspecified -> progress breadcrumb
+            label = (parts[0] if parts else "").strip()
+            if label:
+                yield {"type": "thinking", "text": label[:140]}
+
+    elif which == "data":
+        data = sm.data
+        sql = getattr(data, "generated_sql", "") or ""
+        if sql and sql not in seen_sql:
+            seen_sql.add(sql)
+            yield {"type": "thinking", "text": "Generated BigQuery SQL — running it…"}
+            yield {"type": "sql", "sql": sql}
+        result = getattr(data, "result", None)
+        if result is not None:
+            columns, rows = _result_rows(result)
+            if columns and rows:
+                yield {"type": "table", "columns": columns, "rows": rows}
+
+    elif which == "chart":
+        result = getattr(sm.chart, "result", None)
+        spec = None
+        if result is not None:
+            pb = getattr(result, "_pb", None)
+            if pb is not None and pb.HasField("vega_config"):
+                spec = MessageToDict(pb.vega_config)
+        if spec:
+            enc = spec.get("encoding", {})
+            yield {"type": "chart",
+                   "spec": {"mark": spec.get("mark", "bar"),
+                            "x": (enc.get("x") or {}).get("field"),
+                            "y": (enc.get("y") or {}).get("field"),
+                            "title": spec.get("title")},
+                   "vega": spec}
+
+    elif which == "clarification":
+        ctext = _clarification_text(sm.clarification)
+        if ctext:
+            yield {"type": "clarification", "text": ctext}
+
+    elif which == "schema":
+        yield {"type": "thinking", "text": "Resolved the schema for your question…"}
+    elif which == "analysis":
+        yield {"type": "thinking", "text": "Analysing the data to answer…"}
+    elif which == "error":
+        err = sm.error
+        yield {"type": "text", "text": f"The data agent reported: {getattr(err, 'text', None) or str(err)}"}
+
+
 def ask_conversational(question: str) -> Iterator[Dict]:
-    """Stream a question to the CA data agent, yielding UI block dicts live."""
+    """Single-shot: stream a question to the CA data agent, yielding UI blocks."""
     client = gda.DataChatServiceClient()
     request = gda.ChatRequest(
         parent=_parent(),
         data_agent_context=gda.DataAgentContext(data_agent=_agent_name()),
         messages=[gda.Message(user_message=gda.UserMessage(text=question))],
     )
-
     seen_sql: set = set()
     for reply in client.chat(request=request):
         sm = getattr(reply, "system_message", None)
-        if sm is None:
-            continue
-        which = sm._pb.WhichOneof("kind") if hasattr(sm, "_pb") else None
+        if sm is not None:
+            yield from _process(sm, seen_sql)
 
-        if which == "text":
-            tmsg = sm.text
-            ttype = getattr(tmsg, "text_type", None)
-            tval = int(ttype) if ttype is not None else None
-            parts = [p for p in (getattr(tmsg, "parts", []) or [])]
-            # text_type: 0/None=unspecified, 1=FINAL_RESPONSE, 2=THOUGHT, 3=FOLLOWUP
-            if tval == 1:  # FINAL_RESPONSE
-                text = "".join(parts).strip()
-                if text:
-                    yield {"type": "text", "text": text}
-            elif tval == 3:  # FOLLOWUP_QUESTIONS
-                fups = [p.strip() for p in parts if p.strip()]
-                if fups:
-                    yield {"type": "text", "text": "**Suggested follow-ups:** " + "  ·  ".join(fups)}
-            else:  # THOUGHT / unspecified -> progress breadcrumb (first part only)
-                label = (parts[0] if parts else "").strip()
-                if label:
-                    yield {"type": "thinking", "text": label[:140]}
 
-        elif which == "data":
-            data = sm.data
-            sql = getattr(data, "generated_sql", "") or ""
-            if sql and sql not in seen_sql:
-                seen_sql.add(sql)
-                yield {"type": "thinking", "text": "Generated BigQuery SQL — running it…"}
-                yield {"type": "sql", "sql": sql}
-            result = getattr(data, "result", None)
-            if result is not None:
-                columns, rows = _result_rows(result)
-                if columns and rows:
-                    yield {"type": "table", "columns": columns, "rows": rows}
+# ---------------------------------------------------------------------------
+# Multi-turn (human-in-the-loop) conversations — for clarification resolution
+# ---------------------------------------------------------------------------
+def start_conversation() -> str:
+    """Create a stateful CA conversation bound to the agent; return its name."""
+    import uuid as _uuid
+    client = gda.DataChatServiceClient()
+    conv = gda.Conversation(agents=[_agent_name()])
+    created = client.create_conversation(
+        parent=_parent(), conversation_id=f"ubs-{_uuid.uuid4().hex[:12]}", conversation=conv)
+    return created.name
 
-        elif which == "chart":
-            result = getattr(sm.chart, "result", None)
-            spec = None
-            if result is not None:
-                pb = getattr(result, "_pb", None)
-                if pb is not None and pb.HasField("vega_config"):
-                    spec = MessageToDict(pb.vega_config)
-            if spec:
-                enc = spec.get("encoding", {})
-                yield {"type": "chart",
-                       "spec": {"mark": spec.get("mark", "bar"),
-                                "x": (enc.get("x") or {}).get("field"),
-                                "y": (enc.get("y") or {}).get("field"),
-                                "title": spec.get("title")},
-                       "vega": spec}
 
-        elif which == "schema":
-            yield {"type": "thinking", "text": "Resolved the schema for your question…"}
-        elif which == "analysis":
-            yield {"type": "thinking", "text": "Analysing the data to answer…"}
-        elif which == "error":
-            err = sm.error
-            yield {"type": "text", "text": f"The data agent reported: {getattr(err, 'text', None) or str(err)}"}
+def converse(conversation_name: str, question: str) -> Iterator[Dict]:
+    """Send one turn into an existing conversation (service keeps the history),
+    so the agent can resolve a clarification with the user's reply."""
+    client = gda.DataChatServiceClient()
+    request = gda.ChatRequest(
+        parent=_parent(),
+        conversation_reference=gda.ConversationReference(
+            conversation=conversation_name,
+            data_agent_context=gda.DataAgentContext(data_agent=_agent_name()),
+        ),
+        messages=[gda.Message(user_message=gda.UserMessage(text=question))],
+    )
+    seen_sql: set = set()
+    for reply in client.chat(request=request):
+        sm = getattr(reply, "system_message", None)
+        if sm is not None:
+            yield from _process(sm, seen_sql)

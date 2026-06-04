@@ -313,16 +313,85 @@ def _business_summary(goal: str, plan: str, ds_out: dict, ca_blocks: list) -> st
             f"household whitespace exists — protecting AuM and advancing the $200bn net-new-money ambition.")
 
 
+# Human-in-the-loop CA: server-side conversation sessions keyed by conversation name
+_CA_SESSIONS: dict = {}
+_P_CA = "Plain-English context behind the result — the same question any business user could ask directly."
+_P_BIZ = "Turns the model + context into a decision and recommended action."
+
+
+def _persona(pid, title, status, badge="", purpose="", output=None):
+    e = {"type": "persona", "id": pid, "title": title, "status": status,
+         "badge": badge, "purpose": purpose}
+    if output is not None:
+        e["output"] = output
+    return e
+
+
+def _collect_ca(block_iter) -> tuple[list, bool]:
+    """Consume CA block dicts -> (display_blocks, is_clarification). A clarification
+    is a typed clarification block, OR an answer with no data that ends as a question."""
+    display, raw_clar, has_data = [], False, False
+    for b in block_iter:
+        t = b.get("type")
+        if t == "clarification":
+            raw_clar = True
+            display.append({"type": "text", "text": b.get("text", "")})
+        elif t in ("text", "sql"):
+            display.append(b)
+        elif t == "table":
+            has_data = True
+            display.append(b)
+        elif t == "chart":
+            has_data = True  # chart shown via CA card too (kept as-is)
+    text = " ".join(b.get("text", "") for b in display if b.get("type") == "text")
+    is_clar = raw_clar or (not has_data and "?" in text and len(text) < 500)
+    return display, is_clar
+
+
+def _ca_done_then_business(goal, plan, ds_out, caq, blocks):
+    """Yield the CA 'done' event + the Business User stage + done."""
+    yield _persona("ca", "Conversational Analytics Agent", "done", "LIVE · Gemini Data Analytics",
+                   _P_CA, {"kind": "ca", "question": caq, "blocks": blocks})
+    yield _persona("business", "Business User", "working", "decision", _P_BIZ)
+    summary = _business_summary(goal, plan, ds_out, blocks)
+    yield _persona("business", "Business User", "done", "decision", _P_BIZ, {"kind": "text", "text": summary})
+    yield {"type": "done"}
+
+
+def continue_ca(conv_token: str, reply: str):
+    """Resume a paused CA conversation with the human's reply (sync generator)."""
+    from .. import conversational
+    sess = _CA_SESSIONS.get(conv_token)
+    if not sess:
+        yield {"type": "done"}
+        return
+    sess["attempts"] += 1
+    yield _persona("ca", "Conversational Analytics Agent", "working",
+                   "LIVE · Gemini Data Analytics", _P_CA)
+    try:
+        new_blocks, is_clar = _collect_ca(conversational.converse(conv_token, reply))
+    except Exception as e:
+        new_blocks, is_clar = [{"type": "text", "text": f"(Conversational Analytics error: {e})"}], False
+    blocks = (sess.get("blocks") or []) + new_blocks
+
+    if is_clar and sess["attempts"] < 3:
+        sess["blocks"] = blocks
+        yield _persona("ca", "Conversational Analytics Agent", "needs_input",
+                       "LIVE · Gemini Data Analytics", _P_CA,
+                       {"kind": "ca", "question": sess["caq"], "blocks": blocks,
+                        "conv_token": conv_token, "awaiting_reply": True})
+        return
+    # resolved — or last resort after 3 turns
+    _CA_SESSIONS.pop(conv_token, None)
+    yield from _ca_done_then_business(sess["goal"], sess["plan"], sess["ds_out"], sess["caq"], blocks)
+
+
 async def run_lifecycle(goal: str):
     """Yield persona-stage events showing the end-to-end data lifecycle."""
     plan = _plan(goal)
 
     def ev(pid, title, status, badge="", purpose="", output=None):
-        e = {"type": "persona", "id": pid, "title": title, "status": status,
-             "badge": badge, "purpose": purpose}
-        if output is not None:
-            e["output"] = output
-        return e
+        return _persona(pid, title, status, badge, purpose, output)
 
     plan_label = {"forecast": "forecasting", "attrition": "flight-risk", "segments": "segmentation",
                   "nba": "next-best-action", "unify": "client unification"}.get(plan, plan)
@@ -359,24 +428,37 @@ async def run_lifecycle(goal: str):
         ds_out = {"kind": "text", "text": f"(model run failed: {e})", "artifacts": []}
     yield ev("ds", "Data Scientist", "done", "BigQuery ML", p_ds, ds_out)
 
-    # 4) CONVERSATIONAL ANALYTICS AGENT (real) ------------------------------
-    p_ca = "Plain-English context behind the result — the same question any business user could ask directly."
-    yield ev("ca", "Conversational Analytics Agent", "working", "LIVE · Gemini Data Analytics", p_ca)
+    # 4) CONVERSATIONAL ANALYTICS AGENT (real) — human-in-the-loop ----------
+    yield ev("ca", "Conversational Analytics Agent", "working", "LIVE · Gemini Data Analytics", _P_CA)
     caq = _ca_question(plan, goal)
-    ca_blocks: list = []
-    try:
-        for b in services.ask(caq):
-            if b.get("type") in ("text", "table", "sql"):
-                ca_blocks.append(b)
-    except Exception as e:
-        ca_blocks = [{"type": "text", "text": f"(Conversational Analytics unavailable: {e})"}]
-    yield ev("ca", "Conversational Analytics Agent", "done", "LIVE · Gemini Data Analytics", p_ca,
-             {"kind": "ca", "question": caq, "blocks": ca_blocks})
 
-    # 5) BUSINESS USER (decision) -------------------------------------------
-    p_biz = "Turns the model + context into a decision and recommended action."
-    yield ev("business", "Business User", "working", "decision", p_biz)
-    summary = _business_summary(goal, plan, ds_out, ca_blocks)
-    yield ev("business", "Business User", "done", "decision", p_biz, {"kind": "text", "text": summary})
+    # Live path: a stateful conversation so a clarification pauses for the human
+    # (no premature fallback). Demo path: single-shot fixtures.
+    if settings.USE_BQ and settings.CA_AGENT_ID:
+        from .. import conversational
+        try:
+            conv = await asyncio.to_thread(conversational.start_conversation)
+            blocks, is_clar = await asyncio.to_thread(
+                lambda: _collect_ca(conversational.converse(conv, caq)))
+        except Exception as e:
+            conv, blocks, is_clar = None, [], False
+            try:                                   # genuine error -> last-resort fallback
+                blocks = [b for b in services.ask(caq) if b.get("type") in ("text", "table", "sql")]
+            except Exception:
+                blocks = [{"type": "text", "text": f"(Conversational Analytics unavailable: {e})"}]
+        if is_clar and conv:
+            _CA_SESSIONS[conv] = {"goal": goal, "plan": plan, "ds_out": ds_out,
+                                  "caq": caq, "blocks": blocks, "attempts": 0}
+            yield ev("ca", "Conversational Analytics Agent", "needs_input",
+                     "LIVE · Gemini Data Analytics", _P_CA,
+                     {"kind": "ca", "question": caq, "blocks": blocks,
+                      "conv_token": conv, "awaiting_reply": True})
+            return                                 # PAUSE — wait for the human's reply
+        if not blocks:                             # genuine empty -> last-resort fallback
+            blocks = [b for b in services.ask(caq) if b.get("type") in ("text", "table", "sql")]
+    else:
+        blocks = [b for b in services.ask(caq) if b.get("type") in ("text", "table", "sql")]
 
-    yield {"type": "done"}
+    # 5) CA done + BUSINESS USER decision -----------------------------------
+    for e in _ca_done_then_business(goal, plan, ds_out, caq, blocks):
+        yield e

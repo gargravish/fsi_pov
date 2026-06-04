@@ -6,7 +6,7 @@ import { PersonaEvent } from "../lib/types";
 import ForecastChart from "../components/ForecastChart";
 import {
   Database, Workflow, FlaskConical, MessagesSquare, Briefcase,
-  Loader2, CheckCircle2, ArrowDown, ExternalLink, Circle,
+  Loader2, CheckCircle2, ArrowDown, ExternalLink, Circle, Send, MessageSquareWarning,
 } from "lucide-react";
 
 const GOALS = [
@@ -26,21 +26,34 @@ const META: Record<string, { icon: any; title: string; subtitle: string; color: 
   business: { icon: Briefcase, title: "Business User", subtitle: "Decision & action", color: "#f59e0b" },
 };
 
-interface Block { status: "idle" | "working" | "done"; badge?: string; purpose?: string; output?: any; }
+interface Block { status: "idle" | "working" | "done" | "needs_input"; badge?: string; purpose?: string; output?: any; }
 
 export default function Agents() {
   const [goal, setGoal] = useState("");
   const [busy, setBusy] = useState(false);
   const [blocks, setBlocks] = useState<Record<string, Block>>({});
 
+  function applyEvent(e: PersonaEvent) {
+    if (e.type !== "persona" || !e.id) return;
+    setBlocks((prev) => ({
+      ...prev,
+      [e.id!]: { status: e.status as any, badge: e.badge, purpose: e.purpose,
+                 output: e.output ?? prev[e.id!]?.output },
+    }));
+  }
+
   async function run(g: string) {
     if (!g.trim() || busy) return;
     setGoal(g); setBusy(true);
     setBlocks(Object.fromEntries(ORDER.map((id) => [id, { status: "idle" }])));
-    await api.agents(g, (e: PersonaEvent) => {
-      if (e.type !== "persona" || !e.id) return;
-      setBlocks((prev) => ({ ...prev, [e.id!]: { status: e.status as any, badge: e.badge, purpose: e.purpose, output: e.output ?? prev[e.id!]?.output } }));
-    });
+    await api.agents(g, applyEvent);
+    setBusy(false);
+  }
+
+  // human-in-the-loop: send the user's reply to a paused CA conversation
+  async function sendReply(convToken: string, reply: string) {
+    setBusy(true);
+    await api.agentsCaReply(convToken, reply, applyEvent);
     setBusy(false);
   }
 
@@ -69,7 +82,7 @@ export default function Agents() {
       <div className="space-y-2">
         {ORDER.map((id, i) => (
           <div key={id}>
-            <PersonaBlock id={id} block={blocks[id] ?? { status: "idle" }} />
+            <PersonaBlock id={id} block={blocks[id] ?? { status: "idle" }} busy={busy} onReply={sendReply} />
             {i < ORDER.length - 1 && (
               <div className="flex justify-center py-1">
                 <ArrowDown size={16} className={blocks[id]?.status === "done" ? "text-accent2" : "text-edge"} />
@@ -82,12 +95,14 @@ export default function Agents() {
   );
 }
 
-function PersonaBlock({ id, block }: { id: Pid; block: Block }) {
+function PersonaBlock({ id, block, busy, onReply }:
+  { id: Pid; block: Block; busy: boolean; onReply: (token: string, reply: string) => void }) {
   const m = META[id];
   const Icon = m.icon;
   const active = block.status !== "idle";
+  const needsInput = block.status === "needs_input";
   return (
-    <Card className={`transition ${active ? "" : "opacity-50"}`}>
+    <Card className={`transition ${active ? "" : "opacity-50"} ${needsInput ? "border-amber-500/60" : ""}`}>
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl grid place-items-center shrink-0"
           style={{ background: `${m.color}22`, border: `1px solid ${m.color}55` }}>
@@ -99,12 +114,14 @@ function PersonaBlock({ id, block }: { id: Pid; block: Block }) {
             {block.badge && <Badge tone={id === "de" || id === "ca" ? "green" : "default"}>
               {(id === "de" || id === "ca") ? "● " : ""}{block.badge}
             </Badge>}
+            {needsInput && <Badge tone="amber">needs your input</Badge>}
           </div>
           <div className="text-xs text-muted">{block.purpose || m.subtitle}</div>
         </div>
         <div className="shrink-0">
           {block.status === "working" && <Loader2 size={18} className="animate-spin text-accent2" />}
           {block.status === "done" && <CheckCircle2 size={18} className="text-emerald-400" />}
+          {needsInput && <MessageSquareWarning size={18} className="text-amber-400" />}
           {block.status === "idle" && <Circle size={18} className="text-edge" />}
         </div>
       </div>
@@ -114,10 +131,30 @@ function PersonaBlock({ id, block }: { id: Pid; block: Block }) {
           <OutputView output={block.output} />
         </div>
       )}
+      {needsInput && block.output?.conv_token && (
+        <ReplyBox busy={busy} onSend={(text) => onReply(block.output.conv_token, text)} />
+      )}
       {block.status === "working" && !block.output && (
         <div className="mt-3 text-xs text-muted italic">working…</div>
       )}
     </Card>
+  );
+}
+
+function ReplyBox({ busy, onSend }: { busy: boolean; onSend: (text: string) => void }) {
+  const [v, setV] = useState("");
+  const send = () => { if (v.trim() && !busy) { onSend(v.trim()); setV(""); } };
+  return (
+    <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-2.5">
+      <div className="text-[11px] text-amber-300/90 mb-1.5">The agent needs a clarification — reply to continue (human-in-the-loop):</div>
+      <div className="flex gap-2">
+        <input className="input" placeholder="Type your answer…" value={v}
+          onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} disabled={busy} />
+        <button className="btn" onClick={send} disabled={busy || !v.trim()}>
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        </button>
+      </div>
+    </div>
   );
 }
 
