@@ -115,6 +115,7 @@ export interface PersonaEvent {
   title?: string;
   status?: "working" | "done";
   badge?: string;
+  purpose?: string;
   output?: any;
 }
 export interface AskBlock {

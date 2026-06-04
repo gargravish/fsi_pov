@@ -213,15 +213,26 @@ export const mock = {
       caq = "How many clients are dual-banked, broken down by booking centre?";
       caBlocks = [{ type: "text", text: "Dual-banked clients are concentrated in **Zurich**, **Geneva** and **Hong Kong** — the integration overlap is highest there." }, { type: "table", columns: ["booking_centre", "dual_banked"], rows: [["Zurich", 2104], ["Geneva", 1380], ["Hong Kong", 1190], ["London", 980]] }];
     } else if (/(forecast|nna|net new|aum|revenue|grow|project)/.test(g)) {
-      ds = { kind: "forecast", forecast: mock.forecast("nna"), headline: "Ran AI.FORECAST (TimesFM 2.5), 12-month multi-series horizon by division × region.", artifacts: [bq("forecast_nna"), bq("ts_nna_monthly")] };
-      caq = "Which division and region had the highest net new money last year?";
-      caBlocks = [{ type: "text", text: "**GWM APAC** led net new money, followed by GWM Switzerland." }, { type: "table", columns: ["division", "region", "nna_usd_bn"], rows: [["GWM", "APAC", 41.2], ["GWM", "Switzerland", 33.8], ["AM", "Americas", 18.4]] }];
+      const region = /apac|asia|hong kong|singapore/.test(g) ? "APAC"
+        : /emea|europe|london/.test(g) ? "EMEA"
+        : /americas|new york|\bus\b/.test(g) ? "Americas"
+        : /swiss|zurich|geneva/.test(g) ? "Switzerland" : "all regions";
+      ds = { kind: "forecast", forecast: mock.forecast("nna"), headline: `Ran AI.FORECAST (TimesFM 2.5) for ${region} — net new money, 12-month horizon.`, artifacts: [bq("forecast_nna"), bq("ts_nna_monthly")] };
+      caq = `How has net new money in ${region} trended over the last 12 months — the historical baseline behind this forecast?`;
+      caBlocks = [{ type: "text", text: `Net new money in **${region}** grew steadily over the trailing 12 months, accelerating in the last two quarters — consistent with the forecast trajectory.` }, { type: "table", columns: ["quarter", "nna_usd_bn"], rows: [["2025 Q3", 9.1], ["2025 Q4", 9.8], ["2026 Q1", 10.6], ["2026 Q2", 11.4]] }];
     } else {
       ds = { kind: "segments", segments: mock.segments(), headline: "Trained BQML KMEANS (8 clusters), assigned every client, named with Gemini.", artifacts: [bq("client_kmeans", "model"), bq("client_segments"), bq("client_segments_summary")] };
       caq = "What is the average AuM and client count per segment?";
       caBlocks = [{ type: "text", text: "The largest segments by AuM are the **Family Office** and **UHNW equity-led** clusters." }, { type: "table", columns: ["segment", "clients", "avg_aum_usd"], rows: [["Pinnacle Family Office", 5176, 680000000], ["Strategic Equity Partners", 7217, 21000000]] }];
     }
-    return [
+    const purpose: Record<string, string> = {
+      raw: "The unified two-bank estate the agents draw from.",
+      de: "Prepares the exact data/pipeline this goal needs (on the Dataform workspace).",
+      ds: "Builds and runs the model that answers the goal.",
+      ca: "Plain-English context behind the result — the same question any business user could ask directly.",
+      business: "Turns the model + context into a decision and recommended action.",
+    };
+    const events: any[] = [
       { type: "persona", id: "raw", title: "Raw Data", status: "working", badge: "two-bank estate" },
       { type: "persona", id: "raw", title: "Raw Data", status: "done", badge: "two-bank estate", output: { kind: "raw", ...mock.rawOverview() } },
       { type: "persona", id: "de", title: "Data Engineering Agent", status: "working", badge: "LIVE A2A · Google" },
@@ -234,6 +245,7 @@ export const mock = {
       { type: "persona", id: "business", title: "Business User", status: "done", badge: "decision", output: { kind: "text", text: "Prioritise the highest-value, highest-risk cohorts: direct advisor outreach where flight-risk is elevated and cross-sell where household whitespace exists — protecting AuM and advancing the $200bn net-new-money ambition." } },
       { type: "done" },
     ];
+    return events.map((e) => (e.id ? { ...e, purpose: purpose[e.id] } : e));
   },
   rawOverview: () => ({
     sources: [

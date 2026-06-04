@@ -228,16 +228,46 @@ async def run(goal: str):
 # Each stage emits a "persona" event (working -> done with real output), so the
 # UI can show how the data agents coordinate as different user personas.
 # ===========================================================================
-_CA_QUESTION = {
-    "segments": "What is the average AuM and client count per segment in client_segments_summary?",
-    "forecast": "Which division and region had the highest net new money in the last 12 months?",
-    "attrition": "How many clients are dual-banked, broken down by booking centre?",
-    "nba": "Which booking centres hold the most discretionary mandates?",
-    "unify": "How many clients originated from each source bank?",
+_REGION_SYNONYMS = {
+    "APAC": ["apac", "asia", "asia-pacific", "hong kong", "singapore"],
+    "EMEA": ["emea", "europe", "london", "uk", "middle east"],
+    "Americas": ["americas", "america", "us ", "u.s", "new york", "latam"],
+    "Switzerland": ["switzerland", "swiss", "zurich", "geneva", "basel", "lugano"],
 }
+_METRICS = {"nna": ["net new money", "nna", "net-new", "inflow", "new money"],
+            "aum": ["aum", "assets under management", "asset"],
+            "revenue": ["revenue", "fees", "income"]}
+_METRIC_LABEL = {"nna": "net new money", "aum": "assets under management", "revenue": "revenue"}
 
 
-def _ds_output(plan: str) -> dict:
+def _parse_goal(goal: str) -> dict:
+    g = goal.lower()
+    region = next((r for r, kws in _REGION_SYNONYMS.items() if any(k in g for k in kws)), "all")
+    metric = next((m for m, kws in _METRICS.items() if any(k in g for k in kws)), "nna")
+    return {"region": region, "metric": metric}
+
+
+def _ca_question(plan: str, goal: str) -> str:
+    """A plain-English question that gives the CONTEXT behind the model output —
+    derived from the goal, so the CA step clearly belongs to the same flow."""
+    ent = _parse_goal(goal)
+    region = ent["region"]
+    where = "across all regions" if region == "all" else f"in {region}"
+    if plan == "forecast":
+        mlabel = _METRIC_LABEL[ent["metric"]]
+        return (f"How has {mlabel} {where} trended over the last 12 months "
+                f"— the historical baseline behind this forecast?")
+    if plan == "attrition":
+        return f"Which booking centres {where} have the most clients at high flight risk?"
+    if plan == "segments":
+        return "What is the average AuM and dual-banked share for each behavioural segment?"
+    if plan == "nba":
+        return "Which products are most commonly held across households, by booking centre?"
+    return "How many clients originated from each source bank (UBS vs Credit Suisse)?"
+
+
+def _ds_output(plan: str, goal: str) -> dict:
+    ent = _parse_goal(goal)
     if plan == "segments":
         return {"kind": "segments", "segments": services.segments(),
                 "artifacts": [_artifact("KMeans model (BQML)", "client_kmeans", "model"),
@@ -255,11 +285,14 @@ def _ds_output(plan: str) -> dict:
                 "artifacts": [_artifact("Property graph", "client_graph", "graph"),
                               _artifact("Client embeddings", "client_embeddings")],
                 "headline": "Ran GQL household traversal + VECTOR_SEARCH look-alikes."}
-    # forecast / unify default
-    return {"kind": "forecast", "forecast": services.forecast("nna", "all", "all"),
-            "artifacts": [_artifact("NNA forecast (TimesFM)", "forecast_nna"),
-                          _artifact("NNA history mart", "ts_nna_monthly")],
-            "headline": "Ran AI.FORECAST (TimesFM 2.5), 12-month multi-series horizon."}
+    # forecast / unify default — actually forecast the region from the goal
+    region, metric = ent["region"], ent["metric"]
+    fc = services.forecast(metric, "all", region)
+    where = "across all regions" if region == "all" else f"for {region}"
+    return {"kind": "forecast", "forecast": fc,
+            "artifacts": [_artifact(f"{metric.upper()} forecast (TimesFM)", f"forecast_{metric}"),
+                          _artifact(f"{metric.upper()} history mart", f"ts_{metric}_monthly")],
+            "headline": f"Ran AI.FORECAST (TimesFM 2.5) {where} — {_METRIC_LABEL[metric]}, 12-month horizon."}
 
 
 def _business_summary(goal: str, plan: str, ds_out: dict, ca_blocks: list) -> str:
@@ -284,23 +317,28 @@ async def run_lifecycle(goal: str):
     """Yield persona-stage events showing the end-to-end data lifecycle."""
     plan = _plan(goal)
 
-    def ev(pid, title, status, badge="", output=None):
-        e = {"type": "persona", "id": pid, "title": title, "status": status, "badge": badge}
+    def ev(pid, title, status, badge="", purpose="", output=None):
+        e = {"type": "persona", "id": pid, "title": title, "status": status,
+             "badge": badge, "purpose": purpose}
         if output is not None:
             e["output"] = output
         return e
 
+    plan_label = {"forecast": "forecasting", "attrition": "flight-risk", "segments": "segmentation",
+                  "nba": "next-best-action", "unify": "client unification"}.get(plan, plan)
+
     # 1) RAW DATA -----------------------------------------------------------
-    yield ev("raw", "Raw Data", "working", "two-bank estate")
-    await asyncio.sleep(0.4)
+    p_raw = "The unified two-bank estate the agents draw from."
+    yield ev("raw", "Raw Data", "working", "two-bank estate", p_raw)
     try:
         raw = services.raw_overview()
     except Exception as e:
         raw = {"sources": [], "dual_banked": 0, "sample": [], "error": str(e)}
-    yield ev("raw", "Raw Data", "done", "two-bank estate", {"kind": "raw", **raw})
+    yield ev("raw", "Raw Data", "done", "two-bank estate", p_raw, {"kind": "raw", **raw})
 
     # 2) DATA ENGINEERING AGENT (real Google A2A) ---------------------------
-    yield ev("de", "Data Engineering Agent", "working", "LIVE A2A · Google")
+    p_de = f"Prepares the exact data/pipeline this {plan_label} goal needs (on the Dataform workspace)."
+    yield ev("de", "Data Engineering Agent", "working", "LIVE A2A · Google", p_de)
     de_msgs, wurl = [], None
     try:
         from .. import de_agent
@@ -309,21 +347,22 @@ async def run_lifecycle(goal: str):
         wurl = de_agent.workspace_url()
     except Exception as e:
         de_msgs = [f"(Data Engineering Agent unavailable: {e})"]
-    yield ev("de", "Data Engineering Agent", "done", "LIVE A2A · Google",
+    yield ev("de", "Data Engineering Agent", "done", "LIVE A2A · Google", p_de,
              {"kind": "messages", "messages": de_msgs, "workspace_url": wurl})
 
     # 3) DATA SCIENTIST (real BigQuery ML / TimesFM) ------------------------
-    yield ev("ds", "Data Scientist", "working", "BigQuery ML")
-    await asyncio.sleep(0.3)
+    p_ds = f"Builds and runs the model that answers the {plan_label} goal."
+    yield ev("ds", "Data Scientist", "working", "BigQuery ML", p_ds)
     try:
-        ds_out = _ds_output(plan)
+        ds_out = _ds_output(plan, goal)
     except Exception as e:
         ds_out = {"kind": "text", "text": f"(model run failed: {e})", "artifacts": []}
-    yield ev("ds", "Data Scientist", "done", "BigQuery ML", ds_out)
+    yield ev("ds", "Data Scientist", "done", "BigQuery ML", p_ds, ds_out)
 
     # 4) CONVERSATIONAL ANALYTICS AGENT (real) ------------------------------
-    yield ev("ca", "Conversational Analytics Agent", "working", "LIVE · Gemini Data Analytics")
-    caq = _CA_QUESTION.get(plan, _CA_QUESTION["unify"])
+    p_ca = "Plain-English context behind the result — the same question any business user could ask directly."
+    yield ev("ca", "Conversational Analytics Agent", "working", "LIVE · Gemini Data Analytics", p_ca)
+    caq = _ca_question(plan, goal)
     ca_blocks: list = []
     try:
         for b in services.ask(caq):
@@ -331,12 +370,13 @@ async def run_lifecycle(goal: str):
                 ca_blocks.append(b)
     except Exception as e:
         ca_blocks = [{"type": "text", "text": f"(Conversational Analytics unavailable: {e})"}]
-    yield ev("ca", "Conversational Analytics Agent", "done", "LIVE · Gemini Data Analytics",
+    yield ev("ca", "Conversational Analytics Agent", "done", "LIVE · Gemini Data Analytics", p_ca,
              {"kind": "ca", "question": caq, "blocks": ca_blocks})
 
     # 5) BUSINESS USER (decision) -------------------------------------------
-    yield ev("business", "Business User", "working", "decision")
+    p_biz = "Turns the model + context into a decision and recommended action."
+    yield ev("business", "Business User", "working", "decision", p_biz)
     summary = _business_summary(goal, plan, ds_out, ca_blocks)
-    yield ev("business", "Business User", "done", "decision", {"kind": "text", "text": summary})
+    yield ev("business", "Business User", "done", "decision", p_biz, {"kind": "text", "text": summary})
 
     yield {"type": "done"}

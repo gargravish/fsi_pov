@@ -26,7 +26,7 @@ const META: Record<string, { icon: any; title: string; subtitle: string; color: 
   business: { icon: Briefcase, title: "Business User", subtitle: "Decision & action", color: "#f59e0b" },
 };
 
-interface Block { status: "idle" | "working" | "done"; badge?: string; output?: any; }
+interface Block { status: "idle" | "working" | "done"; badge?: string; purpose?: string; output?: any; }
 
 export default function Agents() {
   const [goal, setGoal] = useState("");
@@ -39,7 +39,7 @@ export default function Agents() {
     setBlocks(Object.fromEntries(ORDER.map((id) => [id, { status: "idle" }])));
     await api.agents(g, (e: PersonaEvent) => {
       if (e.type !== "persona" || !e.id) return;
-      setBlocks((prev) => ({ ...prev, [e.id!]: { status: e.status as any, badge: e.badge, output: e.output ?? prev[e.id!]?.output } }));
+      setBlocks((prev) => ({ ...prev, [e.id!]: { status: e.status as any, badge: e.badge, purpose: e.purpose, output: e.output ?? prev[e.id!]?.output } }));
     });
     setBusy(false);
   }
@@ -100,7 +100,7 @@ function PersonaBlock({ id, block }: { id: Pid; block: Block }) {
               {(id === "de" || id === "ca") ? "● " : ""}{block.badge}
             </Badge>}
           </div>
-          <div className="text-xs text-muted">{m.subtitle}</div>
+          <div className="text-xs text-muted">{block.purpose || m.subtitle}</div>
         </div>
         <div className="shrink-0">
           {block.status === "working" && <Loader2 size={18} className="animate-spin text-accent2" />}
