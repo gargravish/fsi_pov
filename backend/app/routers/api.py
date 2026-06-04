@@ -37,6 +37,11 @@ def nba(client_id: str):
     return services.nba(client_id)
 
 
+@router.post("/nba/{client_id}/draft")
+def nba_draft(client_id: str, body: dict):
+    return services.nba_draft(client_id, body.get("product", ""))
+
+
 @router.get("/retention/pipeline")
 def retention_pipeline():
     return services.retention_pipeline()

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { api } from "../lib/api";
-import { Card, SectionTitle, Badge, Loading, fmtUsd } from "../components/ui";
+import { Card, SectionTitle, Badge, Loading, fmtUsd, SourceBadge } from "../components/ui";
 import { Sparkles, Copy, Check, Mail, Target, Gift, Megaphone, ChevronRight } from "lucide-react";
 
 function riskTone(r: number) {
@@ -43,7 +43,18 @@ export default function Retention() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <Card className="lg:col-span-2">
-          <h3 className="font-semibold text-white mb-3">Highest flight-risk clients</h3>
+          <h3 className="font-semibold text-white mb-1">Highest flight-risk clients</h3>
+          {scores && scores.length > 0 && (() => {
+            const dual = scores.filter((s) => s.dual_banked).length;
+            const pct = Math.round((dual / scores.length) * 100);
+            return (
+              <p className="text-xs text-muted mb-3">
+                <span className="text-accent2 font-semibold">{pct}%</span> of the top {scores.length} are{" "}
+                <span className="text-white">dual-banked (UBS + Credit Suisse)</span> — the integration is the
+                #1 flight-risk driver. Single-bank clients are lower risk but a growth opportunity (see Next-Best-Action).
+              </p>
+            );
+          })()}
           {!scores ? <Loading /> : (
             <div className="space-y-2">
               {scores.map((s) => (
@@ -56,6 +67,7 @@ export default function Retention() {
                       <span className="text-muted text-xs ml-2">{s.segment_tier}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <SourceBadge source_banks={s.source_banks} dual_banked={s.dual_banked} />
                       <Badge tone={riskTone(s.flight_risk)}>{Math.round(s.flight_risk * 100)}%</Badge>
                       <ChevronRight size={14} className={sel === s.client_id ? "text-accent2" : "text-muted"} />
                     </div>

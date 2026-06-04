@@ -152,7 +152,9 @@ def build_all() -> dict[str, list[dict]]:
         # flight-risk drivers: dual-banked + recent net outflows + advisor churn
         dual = len(c.in_banks) == 2
         base_risk = 0.10
-        base_risk += 0.18 if dual else 0.0
+        # dual-banked raises flight risk but is ONE factor among many (outflows
+        # dominate) — keeps the high-risk list a realistic mix, not all dual-banked
+        base_risk += 0.12 if dual else 0.0
         base_risk += {"Conservative": 0.0, "Balanced": 0.02, "Growth": 0.04,
                       "Aggressive": 0.06}[c.risk_profile]
         if c.kyc_status in ("expired", "review_required"):
@@ -243,6 +245,7 @@ def build_all() -> dict[str, list[dict]]:
     products_out = [{
         "product_id": p.product_id, "product_type": p.product_type, "name": p.name,
         "description": p.description, "target_segment_hint": p.target_segment_hint,
+        "origin_platform": p.origin_platform,
     } for p in products]
 
     # split attrition into training (80%) / scoring (all, without label)

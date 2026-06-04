@@ -6,6 +6,7 @@ export interface Kpis {
   advisors: number;
   nna_ytd_usd_m: number;
   er_accuracy: number;
+  cross_sell_opportunity?: number;
 }
 export interface Source {
   bank: string;
@@ -27,6 +28,8 @@ export interface ClientHit {
   segment_tier: string;
   booking_centre: string;
   total_aum_usd: number;
+  source_banks?: string;
+  dual_banked?: boolean;
 }
 export interface NbaAction {
   product: string;
@@ -38,10 +41,22 @@ export interface GraphData {
   nodes: { id: string; label: string; type: string; risk?: string }[];
   edges: { source: string; target: string; label?: string; amount?: number }[];
 }
+export interface CrossPlatformRec {
+  product: string;
+  product_type: string;
+  origin_platform: string;
+  rationale: string;
+}
+export interface CrossPlatform {
+  home_platform?: string;
+  other_platform?: string;
+  recommendations?: CrossPlatformRec[];
+}
 export interface NbaResult {
   client: any;
   graph: GraphData;
   actions: NbaAction[];
+  cross_platform?: CrossPlatform;
 }
 export interface RetentionScore {
   client_id: string;
@@ -50,6 +65,8 @@ export interface RetentionScore {
   flight_risk: number;
   drivers: string[];
   play: string;
+  source_banks?: string;
+  dual_banked?: boolean;
 }
 export interface ForecastPoint {
   ts: string;
@@ -79,6 +96,7 @@ export interface Segment {
   avg_aum_usd: number;
   dominant_asset: string;
   attrition_index: number;
+  dual_banked_pct?: number;
 }
 export interface AgentStep {
   type: string;

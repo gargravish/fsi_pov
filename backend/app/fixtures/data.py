@@ -38,6 +38,7 @@ for i in range(60):
     seg = _R.choices(SEGMENTS, weights=[0.4, 0.3, 0.15, 0.1, 0.05])[0]
     aum = {"Affluent": 1.2e6, "HNW": 1.4e7, "UHNW": 1.2e8,
            "Family Office": 8e8, "Institutional": 1.5e9}[seg] * _R.uniform(0.4, 2.2)
+    _dual = _R.random() < 0.22
     _CLIENTS.append({
         "client_id": f"CLI_{i:07d}",
         "full_name": _name(),
@@ -45,16 +46,17 @@ for i in range(60):
         "booking_centre": _R.choice(CENTRES),
         "region": _R.choice(REGIONS),
         "total_aum_usd": round(aum, 2),
-        "dual_banked": _R.random() < 0.22,
+        "dual_banked": _dual,
+        "source_banks": "credit_suisse|ubs" if _dual else _R.choice(["ubs", "credit_suisse"]),
         "risk_profile": _R.choice(["Conservative", "Balanced", "Growth", "Aggressive"]),
     })
 
 
 def kpis() -> dict:
     return {
-        "clients": 40_217, "aum_usd_bn": 6843.2, "accounts": 88_940,
-        "dual_banked_pct": 22.1, "advisors": 902, "nna_ytd_usd_m": 18420.0,
-        "er_accuracy": 96.4,
+        "clients": 40_000, "aum_usd_bn": 2114.5, "accounts": 92_626,
+        "dual_banked_pct": 21.7, "advisors": 900, "nna_ytd_usd_m": 18420.0,
+        "er_accuracy": 96.4, "cross_sell_opportunity": 31_304,
     }
 
 
@@ -157,7 +159,26 @@ def nba(cid: str) -> dict:
          "signals": ["Look-alike clients adopting ESG mandates"],
          "rationale": "Behaviourally similar clients increasingly hold sustainable mandates."},
     ]
-    return {"client": c, "graph": graph, "actions": actions}
+    cross = {} if c["dual_banked"] else {
+        "home_platform": "UBS", "other_platform": "Credit Suisse",
+        "recommendations": [
+            {"product": "Capital Protection Structured Solutions", "product_type": "structured", "origin_platform": "Credit Suisse",
+             "rationale": "A Credit Suisse-originated structured solution, now available post-integration, that offers defined downside protection suited to this client's risk profile."},
+            {"product": "Lombard Credit Facility", "product_type": "lombard", "origin_platform": "Credit Suisse",
+             "rationale": "Securities-backed lending — a Credit Suisse strength now on the unified shelf — can unlock liquidity without liquidating the portfolio."},
+        ]}
+    return {"client": c, "graph": graph, "actions": actions, "cross_platform": cross}
+
+
+def nba_draft(client_id: str, product: str) -> dict:
+    c = client_by_id(client_id)
+    first = c["full_name"].split()[0]
+    note = (f"Dear {first},\n\nAs we bring your UBS and Credit Suisse relationships together, I've "
+            f"been reviewing your portfolio and believe the {product} could be a strong fit for your "
+            f"objectives and {c.get('risk_profile','balanced')} risk profile. Several clients in your "
+            f"household already benefit from it. I'd welcome a brief call to walk through how it works "
+            f"and our latest CIO views — no obligation. Warm regards,\nYour UBS advisor")
+    return {"product": product, "client": c["full_name"], "note": note}
 
 
 def retention_pipeline() -> list[dict]:
@@ -185,6 +206,7 @@ def retention_scores() -> list[dict]:
             "drivers": drivers,
             "play": f"Relationship review + tailored mandate proposal for {c['full_name']}; "
                     "offer CIO portfolio health-check and discuss consolidated pricing.",
+            "source_banks": c.get("source_banks"), "dual_banked": c["dual_banked"],
         })
     return sorted(out, key=lambda x: -x["flight_risk"])
 
@@ -297,11 +319,13 @@ def segments() -> list[dict]:
         ("Institutional Mandates", "fixed_income", 0.09),
         ("Lombard-Active Liquidity Users", "cash", 0.34),
     ]
+    dual = [38, 12, 41, 27, 15, 22, 9, 34]
     out = []
     for i, (lab, dom, attr) in enumerate(labels):
         out.append({"id": i, "label": lab, "size": _R.randint(1800, 9200),
                     "avg_aum_usd": round(_R.uniform(2e6, 4e8), 2),
-                    "dominant_asset": dom, "attrition_index": attr})
+                    "dominant_asset": dom, "attrition_index": attr,
+                    "dual_banked_pct": dual[i % 8]})
     return out
 
 

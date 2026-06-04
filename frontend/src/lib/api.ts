@@ -31,6 +31,8 @@ export const api = {
   clientSearch: (q: string): Promise<ClientHit[]> =>
     USE_MOCKS ? Promise.resolve(mock.clientSearch(q)) : get(`/api/clients/search?q=${encodeURIComponent(q)}`),
   nba: (cid: string): Promise<NbaResult> => (USE_MOCKS ? Promise.resolve(mock.nba(cid)) : get(`/api/nba/${cid}`)),
+  nbaDraft: (cid: string, product: string): Promise<{ product: string; client: string; note: string }> =>
+    USE_MOCKS ? Promise.resolve(mock.nbaDraft(cid, product)) : post(`/api/nba/${cid}/draft`, { product }),
   retentionPipeline: (): Promise<{ week: string; count: number; high_risk: number }[]> =>
     USE_MOCKS ? Promise.resolve(mock.retentionPipeline()) : get("/api/retention/pipeline"),
   retentionScores: (): Promise<RetentionScore[]> =>

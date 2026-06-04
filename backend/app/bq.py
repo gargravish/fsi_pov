@@ -50,6 +50,15 @@ def gen_text(prompt: str, max_tokens: int = 400) -> str:
         return f"(AI commentary unavailable: {e})"
 
 
+def gen_many(prompts: list[str]) -> list[str]:
+    """Run several gen_text prompts concurrently (cuts NBA latency ~5x)."""
+    from concurrent.futures import ThreadPoolExecutor
+    if not prompts:
+        return []
+    with ThreadPoolExecutor(max_workers=min(8, len(prompts))) as ex:
+        return list(ex.map(gen_text, prompts))
+
+
 def gen_json(prompt: str) -> dict:
     """Generate a JSON object with Gemini (structured output)."""
     import json as _json
@@ -101,11 +110,16 @@ def kpis() -> dict:
                    f"FROM `{DS}.clients`")[0]["acc"]
     except Exception:
         pass
+    single = 0
+    try:
+        single = _rows(f"SELECT COUNTIF(NOT dual_banked) n FROM `{DS}.clients`")[0]["n"]
+    except Exception:
+        pass
     return {
         "clients": int(r["clients"]), "aum_usd_bn": float(r["aum_usd_bn"]),
         "accounts": int(r["accounts"]), "dual_banked_pct": float(r["dual_banked_pct"]),
         "advisors": int(r["advisors"]), "nna_ytd_usd_m": float(r["nna_ytd_usd_m"]),
-        "er_accuracy": float(er),
+        "er_accuracy": float(er), "cross_sell_opportunity": int(single),
     }
 
 
@@ -129,7 +143,8 @@ def sources() -> list[dict]:
 
 def client_search(q: str) -> list[dict]:
     sql = f"""
-    SELECT client_id, full_name, segment_tier, booking_centre, total_aum_usd
+    SELECT client_id, full_name, segment_tier, booking_centre, total_aum_usd,
+           source_banks, dual_banked
     FROM `{DS}.clients`
     WHERE LOWER(full_name) LIKE @q OR LOWER(client_id) LIKE @q
     ORDER BY total_aum_usd DESC LIMIT 12
@@ -170,21 +185,66 @@ def nba(cid: str) -> dict:
         """)
     except Exception:
         pass
+    seg = client.get("segment_tier", "HNW")
+    reg = client.get("region", "EMEA")
     actions = []
-    for mp in (mate_products or [])[:3]:
+    asks: dict[str, str] = {}   # id -> instruction (one batched Gemini call)
+    for n, mp in enumerate((mate_products or [])[:3]):
         prod = mp["product"]
         actions.append({
             "product": prod.replace("_", " ").title() + " Mandate",
             "score": round(min(0.95, 0.55 + 0.1 * float(mp["signal"])), 2),
             "signals": [f"{mp['signal']} household-mates hold {prod}",
                         f"{len(look)} behavioural look-alikes"],
-            "rationale": gen_text(
-                f"In <=2 sentences, give a UBS client advisor a rationale to recommend a "
-                f"{prod} mandate to a {client.get('segment_tier','HNW')} client in "
-                f"{client.get('region','EMEA')} whose household already holds it. "
-                f"Be concrete and compliant; no guarantees."),
+            "rationale": "",
         })
-    return {"client": client, "graph": _build_graph(cid, mate_products), "actions": actions}
+        asks[f"a{n}"] = (f"Rationale (<=2 sentences) for a UBS advisor to recommend a {prod} mandate "
+                         f"to this {seg} client in {reg} whose household already holds it.")
+
+    # cross-platform candidate products (other platform) for single-bank clients
+    cross = _cross_platform_products(cid, client)
+    for n, rec in enumerate(cross.get("recommendations", [])):
+        asks[f"c{n}"] = (f"One sentence on why the '{rec['product']}' — a {cross['other_platform']}-"
+                         f"originated capability now available through the UBS–Credit Suisse "
+                         f"integration — is worth a conversation for this {cross['home_platform']}-only client.")
+
+    # ONE Gemini call returns all rationales as JSON (no threads, low latency)
+    if asks:
+        prompt = ("You are a UBS advisor copilot. Return ONLY a JSON object mapping each id to a "
+                  "concrete, compliant rationale string (no performance guarantees). "
+                  f"Items: {asks}")
+        out = gen_json(prompt)
+        for n, a in enumerate(actions):
+            a["rationale"] = (out.get(f"a{n}") or "").strip() or \
+                "Household holdings and look-alike behaviour make this a strong, compliant fit."
+        for n, rec in enumerate(cross.get("recommendations", [])):
+            rec["rationale"] = (out.get(f"c{n}") or "").strip() or \
+                f"Now available through the integration and well-suited to a {seg} client."
+
+    return {"client": client, "graph": _build_graph(cid, mate_products),
+            "actions": actions, "cross_platform": cross}
+
+
+def _cross_platform_products(cid: str, client: dict) -> dict:
+    """Single-bank clients are prime candidates for the OTHER platform's products,
+    now available post-integration. Returns {} for dual-banked clients."""
+    rows = _rows(f"SELECT source_banks FROM `{DS}.clients` WHERE client_id=@c", {"c": cid})
+    banks = (rows[0]["source_banks"] if rows else "") or ""
+    if "|" in banks:   # dual-banked -> not a cross-platform candidate
+        return {}
+    home = "UBS" if banks == "ubs" else "Credit Suisse"
+    other = "Credit Suisse" if home == "UBS" else "UBS"
+    seg = client.get("segment_tier", "HNW")
+    prods = _rows(f"""
+      SELECT name, product_type, target_segment_hint
+      FROM `{DS}.products`
+      WHERE origin_platform = @other
+      ORDER BY IF(target_segment_hint = @seg, 0, 1), product_id
+      LIMIT 2
+    """, {"other": other, "seg": seg})
+    recs = [{"product": p["name"], "product_type": p["product_type"],
+             "origin_platform": other, "rationale": ""} for p in prods]
+    return {"home_platform": home, "other_platform": other, "recommendations": recs}
 
 
 def _build_graph(cid: str, mate_products: list[dict]) -> dict:
@@ -198,6 +258,24 @@ def _build_graph(cid: str, mate_products: list[dict]) -> dict:
     return {"nodes": nodes, "edges": edges}
 
 
+def nba_draft(client_id: str, product: str) -> dict:
+    """Gemini-drafted advisor outreach note recommending `product` to the client,
+    grounded in the client's segment / region / AuM / risk profile."""
+    rows = _rows(f"""
+      SELECT full_name, segment_tier, region, booking_centre, risk_profile, total_aum_usd
+      FROM `{DS}.clients` WHERE client_id = @c
+    """, {"c": client_id})
+    c = rows[0] if rows else {"full_name": client_id, "segment_tier": "HNW",
+                              "region": "EMEA", "risk_profile": "Balanced", "total_aum_usd": 0}
+    note = gen_text(
+        f"Write a short (~90 words), warm and compliant advisor outreach note recommending the "
+        f"'{product}' to a UBS client. No performance guarantees. Tie it to their profile and the "
+        f"UBS + Credit Suisse integration where natural. Sign as the client's advisor.\n"
+        f"Client: {c['full_name']}, {c['segment_tier']}, {c.get('region','')}, risk profile "
+        f"{c.get('risk_profile','')}, AuM USD {int(c.get('total_aum_usd') or 0)}.")
+    return {"product": product, "client": c["full_name"], "note": note}
+
+
 def retention_pipeline() -> list[dict]:
     return [{"week": str(r["week"]), "count": int(r["clients"]),
              "high_risk": int(r["high_risk"])}
@@ -208,7 +286,7 @@ def retention_pipeline() -> list[dict]:
 def retention_scores() -> list[dict]:
     rows = _rows(f"""
       SELECT s.client_id, c.full_name, s.segment_tier, s.flight_risk,
-             s.dual_banked, s.outflow_ratio, s.recent_net_flow_usd
+             s.dual_banked, s.outflow_ratio, s.recent_net_flow_usd, c.source_banks
       FROM `{DS}.attrition_scores` s
       JOIN `{DS}.clients` c USING (client_id)
       ORDER BY s.flight_risk DESC LIMIT 20
@@ -237,6 +315,7 @@ def retention_scores() -> list[dict]:
             "client_id": r["client_id"], "full_name": r["full_name"],
             "segment_tier": r["segment_tier"], "flight_risk": round(float(r["flight_risk"]), 3),
             "drivers": drivers, "play": play,
+            "source_banks": r["source_banks"], "dual_banked": bool(r["dual_banked"]),
         })
     return out
 
@@ -297,27 +376,36 @@ def retention_campaign(client_id: str) -> dict:
         drivers.append("Net outflows over the last 6 months")
     drivers = drivers or ["Behavioural risk factors"]
 
+    # cross-platform opportunity for single-bank clients (post-integration shelf)
+    cross = _cross_platform_products(client_id, {"segment_tier": c["segment_tier"]})
+    cross_names = [r["product"] for r in cross.get("recommendations", [])]
+
     ctx = {
         "asset_mix": [{"asset_class": a["asset_class"], "pct": float(a["pct"])} for a in asset_mix],
         "household_whitespace": whitespace,
         "recent_net_flow_usd": recent_net,
         "advisor": {"name": c["advisor_name"], "desk": c["advisor_desk"]},
         "flight_risk": round(float(c["flight_risk"] or 0), 3),
+        "cross_platform": cross,
     }
 
+    cp_hint = ("" if not cross_names else
+               f" This {cross.get('home_platform')}-only client can now also be offered "
+               f"{cross.get('other_platform')}-originated capabilities post-integration: {cross_names}.")
     prompt = (
         "You are a UBS retention strategist. Using ONLY the facts below, produce a targeted "
         "retention campaign for this client as JSON with keys: objective (string), "
-        "retention_offer (string), next_best_action (string — base it on the household whitespace), "
-        "preferred_channel (string), talking_points (array of 3-4 short strings), "
-        "email_subject (string), email_body (string — a warm, compliant ~120-word advisor email, "
-        "no guarantees, signed by the advisor). Be specific and reference the client's holdings/flows.\n\n"
+        "retention_offer (string), next_best_action (string — base it on the household whitespace "
+        "OR the cross_platform products if present), preferred_channel (string), "
+        "talking_points (array of 3-4 short strings), email_subject (string), "
+        "email_body (string — a warm, compliant ~120-word advisor email, no guarantees, signed by "
+        "the advisor). Be specific and reference the client's holdings/flows." + cp_hint + "\n\n"
         f"FACTS: {{'name':'{c['full_name']}','segment':'{c['segment_tier']}','region':'{c['region']}',"
         f"'booking_centre':'{c['booking_centre']}','risk_profile':'{c['risk_profile']}',"
         f"'total_aum_usd':{int(c['total_aum_usd'] or 0)},'tenure_years':{round((c['tenure_days'] or 0)/365,1)},"
         f"'flight_risk':{ctx['flight_risk']},'drivers':{drivers},'recent_net_flow_usd_6m':{int(recent_net)},"
         f"'asset_mix':{ctx['asset_mix']},'household_whitespace':{whitespace},"
-        f"'advisor':'{c['advisor_name']}'}}")
+        f"'cross_platform_products':{cross_names},'advisor':'{c['advisor_name']}'}}")
     campaign = gen_json(prompt) or {
         "objective": f"Retain {c['full_name']} and stabilise AuM",
         "retention_offer": "Relationship review + consolidated pricing",
@@ -399,10 +487,20 @@ def research_answer(q: str) -> dict:
 
 
 def segments() -> list[dict]:
-    # behavioural segments cached by the DS agent / BigFrames; fall back to a SQL approximation
+    # behavioural segments cached by the DS agent / BQML; fall back to a SQL approximation
     try:
         rows = _rows(f"SELECT * FROM `{DS}.client_segments_summary` ORDER BY id")
         if rows:
+            # enrich with integration overlap (dual-banked %) per segment
+            try:
+                dual = {int(r["segment"]): float(r["dual_pct"]) for r in _rows(f"""
+                  SELECT s.segment, ROUND(100*AVG(CAST(c.dual_banked AS INT64)),1) dual_pct
+                  FROM `{DS}.client_segments` s JOIN `{DS}.clients` c USING (client_id)
+                  GROUP BY s.segment""")}
+                for r in rows:
+                    r["dual_banked_pct"] = dual.get(int(r["id"]), 0.0)
+            except Exception:
+                pass
             return rows
     except Exception:
         pass

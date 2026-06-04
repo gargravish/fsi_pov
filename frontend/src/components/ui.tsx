@@ -41,6 +41,14 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
   </div>;
 }
 
+/** Provenance badge — shows whether a client came from UBS, Credit Suisse, or both. */
+export function SourceBadge({ source_banks, dual_banked }: { source_banks?: string; dual_banked?: boolean }) {
+  const dual = dual_banked ?? (source_banks ?? "").includes("|");
+  if (dual) return <Badge tone="red">UBS + CS</Badge>;
+  if ((source_banks ?? "").includes("credit_suisse")) return <Badge tone="default">Credit Suisse</Badge>;
+  return <Badge tone="blue">UBS</Badge>;
+}
+
 export function fmtUsd(n: number): string {
   if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}bn`;
   if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}m`;

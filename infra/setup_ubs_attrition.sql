@@ -21,10 +21,15 @@ OPTIONS (
   auto_class_weights = TRUE,
   max_iterations = 30
 ) AS
+-- NOTE: dual_banked is intentionally EXCLUDED as a feature. It correlates with
+-- flight risk but, as a clean binary, the tree over-splits on it and saturates
+-- the top of the ranking with dual-banked clients. Ranking on behavioural
+-- signals (outflows, KYC, tenure, flows) yields a realistic mix; dual_banked is
+-- kept only as displayed context on the scored client.
 SELECT
   segment_tier, region, risk_profile,
   tenure_days, total_aum_usd, n_accounts, n_txns,
-  dual_banked, kyc_flag, recent_net_flow_usd, outflow_ratio,
+  kyc_flag, recent_net_flow_usd, outflow_ratio,
   attrited
 FROM `raves-altostrat.UBS_POV.attrition_training`;
 

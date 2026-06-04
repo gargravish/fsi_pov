@@ -43,11 +43,15 @@ export default function Segments() {
                   <div>Size: <span className="text-slate-200">{fmtNum(s.size)}</span></div>
                   <div>Avg AuM: <span className="text-slate-200">{fmtUsd(s.avg_aum_usd)}</span></div>
                   <div>Dominant: <span className="text-slate-200">{s.dominant_asset}</span></div>
+                  {s.dual_banked_pct != null && (
+                    <div>Dual-banked: <span className="text-slate-200">{s.dual_banked_pct}%</span> <span className="text-muted">(integration overlap)</span></div>
+                  )}
                 </div>
-                <div className="mt-2">
+                <div className="mt-2 flex gap-1.5 flex-wrap">
                   <Badge tone={s.attrition_index > 0.25 ? "red" : s.attrition_index > 0.15 ? "amber" : "green"}>
                     attrition {Math.round(s.attrition_index * 100)}
                   </Badge>
+                  {(s.dual_banked_pct ?? 0) >= 30 && <Badge tone="red">integration-sensitive</Badge>}
                 </div>
               </Card>
             ))}

@@ -49,6 +49,10 @@ def nba(cid: str):
     return _live("nba", cid) or fx.nba(cid)
 
 
+def nba_draft(cid: str, product: str):
+    return _live("nba_draft", cid, product) or fx.nba_draft(cid, product)
+
+
 def retention_pipeline():
     return _live("retention_pipeline") or fx.retention_pipeline()
 

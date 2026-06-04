@@ -43,6 +43,7 @@ _EXPLICIT_SCHEMA = {
     "products": [
         ("product_id", "STRING"), ("product_type", "STRING"), ("name", "STRING"),
         ("description", "STRING"), ("target_segment_hint", "STRING"),
+        ("origin_platform", "STRING"),
     ],
     "documents": [
         ("document_id", "STRING"), ("gcs_uri", "STRING"), ("doc_type", "STRING"),

@@ -9,18 +9,21 @@ const NAMES = ["Hans Müller", "Marie Dubois", "Luca Rossi", "Sophie Favre",
 const SEG = ["Affluent", "HNW", "UHNW", "Family Office", "Institutional"];
 const CENTRES = ["Zurich", "Geneva", "London", "New York", "Hong Kong", "Singapore"];
 
+const BANKS = ["credit_suisse|ubs", "ubs", "credit_suisse"];
 export const mockClients: ClientHit[] = NAMES.map((n, i) => ({
   client_id: `CLI_${String(i).padStart(7, "0")}`,
   full_name: n,
   segment_tier: SEG[i % SEG.length],
   booking_centre: CENTRES[i % CENTRES.length],
   total_aum_usd: [1.2e6, 1.4e7, 1.2e8, 8e8, 1.5e9][i % 5] * (0.5 + (i % 4) / 2),
+  source_banks: BANKS[i % 3],
+  dual_banked: i % 3 === 0,
 }));
 
 export const mock = {
   kpis: (): Kpis => ({
-    clients: 40217, aum_usd_bn: 6843.2, accounts: 88940, dual_banked_pct: 22.1,
-    advisors: 902, nna_ytd_usd_m: 18420, er_accuracy: 96.4,
+    clients: 40000, aum_usd_bn: 2114.5, accounts: 92626, dual_banked_pct: 21.7,
+    advisors: 900, nna_ytd_usd_m: 18420, er_accuracy: 96.4, cross_sell_opportunity: 31304,
   }),
   sources: (): Source[] => [
     { bank: "UBS", entity: "Client master", format: "CSV", rows: 24321, status: "mapped" },
@@ -80,18 +83,37 @@ export const mock = {
         signals: ["Look-alike clients adopting ESG mandates"],
         rationale: "Behaviourally similar clients increasingly hold sustainable mandates." },
     ],
+    cross_platform: {
+      home_platform: "UBS", other_platform: "Credit Suisse",
+      recommendations: [
+        { product: "Capital Protection Structured Solutions", product_type: "structured", origin_platform: "Credit Suisse",
+          rationale: "A Credit Suisse-originated structured solution, now available post-integration, offering defined downside protection suited to this client's risk profile." },
+        { product: "Lombard Credit Facility", product_type: "lombard", origin_platform: "Credit Suisse",
+          rationale: "Securities-backed lending — a Credit Suisse strength now on the unified shelf — can unlock liquidity without liquidating the portfolio." },
+      ],
+    },
   }),
+  nbaDraft: (cid: string, product: string) => {
+    const c = mockClients.find((x) => x.client_id === cid) ?? mockClients[2];
+    const first = c.full_name.split(" ")[0];
+    return {
+      product, client: c.full_name,
+      note: `Dear ${first},\n\nAs we bring your UBS and Credit Suisse relationships together, I've been reviewing your portfolio and believe the ${product} could be a strong fit for your objectives. Several members of your household already benefit from it. I'd welcome a brief call to walk through how it works and share our latest CIO views — no obligation.\n\nWarm regards,\nYour UBS advisor`,
+    };
+  },
   retentionPipeline: () =>
     Array.from({ length: 12 }, (_, w) => {
       const count = 40 + ((w * 37) % 80);
       return { week: `2026-W${24 + w}`, count, high_risk: Math.round(count * 0.3) };
     }),
   retentionScores: (): RetentionScore[] =>
-    mockClients.slice(0, 12).map((c, i) => ({
+    // dual-banked clients dominate the top of the flight-risk list (the integration story)
+    [...mockClients].sort((a, b) => Number(b.dual_banked) - Number(a.dual_banked)).slice(0, 12).map((c, i) => ({
       client_id: c.client_id, full_name: c.full_name, segment_tier: c.segment_tier,
       flight_risk: Math.max(0.2, 0.93 - i * 0.05),
-      drivers: i % 2 ? ["Dual-banked (UBS + CS)", "Recent net outflows"] : ["Fee sensitivity", "KYC review pending"],
+      drivers: c.dual_banked ? ["Dual-banked (UBS + CS)", "Recent net outflows"] : ["Fee sensitivity", "KYC review pending"],
       play: `Relationship review + tailored mandate proposal for ${c.full_name}; offer a CIO portfolio health-check and discuss consolidated pricing.`,
+      source_banks: c.source_banks, dual_banked: c.dual_banked,
     })),
   retentionCampaign: (clientId: string): any => {
     const c = mockClients.find((x) => x.client_id === clientId) ?? mockClients[2];
@@ -149,14 +171,14 @@ export const mock = {
     ],
   }),
   segments: (): Segment[] => [
-    { id: 0, label: "Globally-Mobile UHNW Entrepreneurs", size: 6200, avg_aum_usd: 1.4e8, dominant_asset: "equity", attrition_index: 0.31 },
-    { id: 1, label: "Conservative Swiss Retirees", size: 8900, avg_aum_usd: 3.2e6, dominant_asset: "fixed_income", attrition_index: 0.12 },
-    { id: 2, label: "Multi-Generational Family Offices", size: 2100, avg_aum_usd: 6.8e8, dominant_asset: "alternative", attrition_index: 0.18 },
-    { id: 3, label: "APAC Growth Seekers", size: 5400, avg_aum_usd: 2.1e7, dominant_asset: "equity", attrition_index: 0.27 },
-    { id: 4, label: "Sustainable-Focused Affluent", size: 7300, avg_aum_usd: 1.9e6, dominant_asset: "fund", attrition_index: 0.15 },
-    { id: 5, label: "Structured-Yield Income Clients", size: 4100, avg_aum_usd: 1.1e7, dominant_asset: "structured", attrition_index: 0.22 },
-    { id: 6, label: "Institutional Mandates", size: 1200, avg_aum_usd: 1.5e9, dominant_asset: "fixed_income", attrition_index: 0.09 },
-    { id: 7, label: "Lombard-Active Liquidity Users", size: 3000, avg_aum_usd: 4.2e7, dominant_asset: "cash", attrition_index: 0.34 },
+    { id: 0, label: "Globally-Mobile UHNW Entrepreneurs", size: 6200, avg_aum_usd: 1.4e8, dominant_asset: "equity", attrition_index: 0.31, dual_banked_pct: 38 },
+    { id: 1, label: "Conservative Swiss Retirees", size: 8900, avg_aum_usd: 3.2e6, dominant_asset: "fixed_income", attrition_index: 0.12, dual_banked_pct: 12 },
+    { id: 2, label: "Multi-Generational Family Offices", size: 2100, avg_aum_usd: 6.8e8, dominant_asset: "alternative", attrition_index: 0.18, dual_banked_pct: 41 },
+    { id: 3, label: "APAC Growth Seekers", size: 5400, avg_aum_usd: 2.1e7, dominant_asset: "equity", attrition_index: 0.27, dual_banked_pct: 27 },
+    { id: 4, label: "Sustainable-Focused Affluent", size: 7300, avg_aum_usd: 1.9e6, dominant_asset: "fund", attrition_index: 0.15, dual_banked_pct: 15 },
+    { id: 5, label: "Structured-Yield Income Clients", size: 4100, avg_aum_usd: 1.1e7, dominant_asset: "structured", attrition_index: 0.22, dual_banked_pct: 22 },
+    { id: 6, label: "Institutional Mandates", size: 1200, avg_aum_usd: 1.5e9, dominant_asset: "fixed_income", attrition_index: 0.09, dual_banked_pct: 9 },
+    { id: 7, label: "Lombard-Active Liquidity Users", size: 3000, avg_aum_usd: 4.2e7, dominant_asset: "cash", attrition_index: 0.34, dual_banked_pct: 34 },
   ],
   network: () => ({
     anomalies: [

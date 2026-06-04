@@ -42,8 +42,8 @@ export default function Home() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Stat label="Clients unified" value={fmtNum(k.clients)} />
           <Stat label="Assets under mgmt" value={`$${(k.aum_usd_bn).toFixed(0)}bn`} sub="synthetic estate" />
-          <Stat label="Accounts" value={fmtNum(k.accounts)} />
-          <Stat label="Dual-banked" value={`${k.dual_banked_pct}%`} sub="UBS ∩ Credit Suisse" />
+          <Stat label="Dual-banked" value={`${k.dual_banked_pct}%`} sub="retention priority" />
+          <Stat label="Cross-sell targets" value={fmtNum(k.cross_sell_opportunity ?? 0)} sub="single-bank clients" />
           <Stat label="NNA (2026)" value={`$${(k.nna_ytd_usd_m / 1000).toFixed(1)}bn`} sub="toward $200bn/yr" />
           <Stat label="Entity-res accuracy" value={`${k.er_accuracy}%`} />
         </div>

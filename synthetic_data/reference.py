@@ -106,6 +106,7 @@ class Product:
     name: str
     description: str
     target_segment_hint: str
+    origin_platform: str   # "UBS" | "Credit Suisse" — for post-integration cross-platform offers
 
 
 _PRODUCTS_RAW = [
@@ -153,8 +154,14 @@ _PRODUCTS_RAW = [
 ]
 
 
+# Products originated on the Credit Suisse side of the merged shelf (by index in
+# _PRODUCTS_RAW): Lombard, Private Markets, Family Office Co-Investment, Structured.
+_CS_PRODUCT_IDX = {3, 5, 6, 7}
+
+
 def products() -> list[Product]:
     out = []
     for i, (ptype, name, desc, hint) in enumerate(_PRODUCTS_RAW):
-        out.append(Product(f"PRD_{i:03d}", ptype, name, desc, hint))
+        origin = "Credit Suisse" if i in _CS_PRODUCT_IDX else "UBS"
+        out.append(Product(f"PRD_{i:03d}", ptype, name, desc, hint, origin))
     return out
