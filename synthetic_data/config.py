@@ -1,8 +1,8 @@
 """
-config.py — Shared constants and environment configuration for UBS Helix
+config.py — Shared constants and environment configuration for FSI Helix
 synthetic data generator.
 
-The estate models TWO legacy banks — "UBS" and "Credit Suisse" — whose data
+The estate models TWO legacy banks — "Apex Bank" and "Summit Bank" — whose data
 must be unified into one governed BigQuery Client 360. All values can be
 overridden via environment variables.
 """
@@ -20,8 +20,8 @@ GOOGLE_CLOUD_PROJECT: str = os.environ.get("GOOGLE_CLOUD_PROJECT", "raves-altost
 GCP_REGION: str = os.environ.get("GCP_REGION", "us-central1")
 BQ_LOCATION: str = os.environ.get("BQ_LOCATION", "us-central1")
 # Single consolidated dataset (logical zones via table prefixes).
-BQ_DATASET: str = os.environ.get("BQ_DATASET", "UBS_POV")
-GCS_BUCKET: str = os.environ.get("GCS_BUCKET", "ubs_pov")
+BQ_DATASET: str = os.environ.get("BQ_DATASET", "FSI_POV")
+GCS_BUCKET: str = os.environ.get("GCS_BUCKET", "fsi_pov")
 BQ_CONNECTION: str = os.environ.get("BQ_CONNECTION", "us-central1.vertex_conn")
 
 # Optional Gemini for rich text generation in documents
@@ -62,7 +62,7 @@ seed_all()
 # ---------------------------------------------------------------------------
 # Source banks
 # ---------------------------------------------------------------------------
-SOURCE_BANKS = ["ubs", "credit_suisse"]
+SOURCE_BANKS = ["apex", "summit"]
 
 # ---------------------------------------------------------------------------
 # Reference enums (kept here so generators + loaders agree)

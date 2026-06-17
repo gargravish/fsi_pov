@@ -1,10 +1,10 @@
 """
-make_all.py — End-to-end synthetic data orchestrator for UBS Helix.
+make_all.py — End-to-end synthetic data orchestrator for FSI Helix.
 
 Modes:
   python make_all.py            # --local (default): write everything to ./output
   python make_all.py --local
-  python make_all.py --gcp      # also upload to GCS and load BigQuery (UBS_POV)
+  python make_all.py --gcp      # also upload to GCS and load BigQuery (FSI_POV)
 
 --local needs ZERO GCP credentials and is how you develop offline.
 """
@@ -23,9 +23,9 @@ import curated_builder
 import markets
 import documents_pdf
 
-from banks import (ubs_clients_csv, ubs_portfolios_fixedwidth,
-                   ubs_positions_parquet, ubs_advisors_xlsx,
-                   cs_clients_json, cs_accounts_xml, cs_transactions_ndjson)
+from banks import (apex_clients_csv, apex_portfolios_fixedwidth,
+                   apex_positions_parquet, apex_advisors_xlsx,
+                   summit_clients_json, summit_accounts_xml, summit_transactions_ndjson)
 
 
 def _write_csv(path: str, rows: list[dict]) -> None:
@@ -64,14 +64,14 @@ def run_local() -> dict:
         print(f"   timeseries/{name}.csv  ({len(rows):,} rows)")
 
     print(">> Writing RAW fragmented two-bank source files ...")
-    ubs_dir = bank_output_dir("ubs")
-    cs_dir = bank_output_dir("credit_suisse")
+    apex_dir = bank_output_dir("apex")
+    summit_dir = bank_output_dir("summit")
     raw_stats = []
     for mod, d in [
-        (ubs_clients_csv, ubs_dir), (ubs_portfolios_fixedwidth, ubs_dir),
-        (ubs_positions_parquet, ubs_dir), (ubs_advisors_xlsx, ubs_dir),
-        (cs_clients_json, cs_dir), (cs_accounts_xml, cs_dir),
-        (cs_transactions_ndjson, cs_dir),
+        (apex_clients_csv, apex_dir), (apex_portfolios_fixedwidth, apex_dir),
+        (apex_positions_parquet, apex_dir), (apex_advisors_xlsx, apex_dir),
+        (summit_clients_json, summit_dir), (summit_accounts_xml, summit_dir),
+        (summit_transactions_ndjson, summit_dir),
     ]:
         stat = mod.write(clients_m, d)
         raw_stats.append(stat)
@@ -100,7 +100,7 @@ def run_gcp() -> None:
     print("\n>> Uploading to GCS ...")
     import upload_gcs
     upload_gcs.upload_all()
-    print("\n>> Loading BigQuery (UBS_POV) ...")
+    print("\n>> Loading BigQuery (FSI_POV) ...")
     import load_raw_bq
     load_raw_bq.load_all()
 

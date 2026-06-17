@@ -20,7 +20,7 @@ const NAV = [
   { to: "/nba", label: "Next-Best-Action", icon: Network },
   { to: "/retention", label: "Flight-Risk Sentinel", icon: ShieldAlert },
   { to: "/forecast", label: "Forecast Room", icon: TrendingUp },
-  { to: "/ask", label: "Ask UBS", icon: MessagesSquare },
+  { to: "/ask", label: "Ask Helix", icon: MessagesSquare },
   { to: "/research", label: "Research Brain", icon: FileSearch },
   { to: "/network", label: "Network Guard", icon: GitGraph },
   { to: "/segments", label: "Segment Studio", icon: Boxes },
@@ -34,7 +34,7 @@ export default function App() {
         <div className="flex items-center gap-2 px-2 mb-5">
           <div className="h-9 w-9 rounded-xl bg-accent grid place-items-center font-extrabold text-white">U</div>
           <div>
-            <div className="font-extrabold text-white leading-tight">UBS Helix</div>
+            <div className="font-extrabold text-white leading-tight">FSI Helix</div>
             <div className="text-[10px] text-muted tracking-wide">AGENTIC DATA PLATFORM</div>
           </div>
         </div>

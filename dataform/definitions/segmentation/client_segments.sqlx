@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "UBS_POV",
+  schema: "FSI_POV",
   name: "client_segments",
   description: "Each client assigned to a behavioural segment (KMeans centroid).",
   dependencies: ["client_kmeans"],

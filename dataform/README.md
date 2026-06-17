@@ -1,13 +1,13 @@
-# UBS Helix — Dataform pipeline (lineage you can show the customer)
+# FSI Helix — Dataform pipeline (lineage you can show the customer)
 
-This Dataform project expresses the **real** UBS_POV transformation pipeline as
+This Dataform project expresses the **real** FSI_POV transformation pipeline as
 governed, version-controlled SQL with full lineage. It is deployed to a live
 Dataform repository in the project:
 
-- **Repository:** `ubs_pov_pipeline` (location `us-central1`)
+- **Repository:** `fsi_pov_pipeline` (location `us-central1`)
 - **Workspace:** `dev`
-- **Open it:** BigQuery console → Dataform → `ubs_pov_pipeline` → `dev`
-  (`https://console.cloud.google.com/bigquery/dataform/locations/us-central1/repositories/ubs_pov_pipeline/workspaces/dev?project=raves-altostrat`)
+- **Open it:** BigQuery console → Dataform → `fsi_pov_pipeline` → `dev`
+  (`https://console.cloud.google.com/bigquery/dataform/locations/us-central1/repositories/fsi_pov_pipeline/workspaces/dev?project=raves-altostrat`)
 
 ## The DAG
 
@@ -40,7 +40,7 @@ to the lineage.
   passing **this Dataform workspace** as the required `gcpresource` extension. It
   genuinely reads/operates on the pipeline here — its streamed replies show up in
   the trace tagged **LIVE A2A** (`backend/app/de_agent.py`). The Conversational
-  Analytics agent (Ask UBS) is likewise the real product.
+  Analytics agent (Ask Helix) is likewise the real product.
 - **Still our own code:** the Orchestrator routing and the Data Scientist steps
   (real BigQuery ML/TimesFM, invoked by our code). These can move to the literal
   google-adk runtime without changing the API or UI.

@@ -1,6 +1,7 @@
-"""All UBS Helix API routes. SSE for /ask and /agents/goal."""
+"""All FSI Helix API routes. SSE for /ask and /agents/goal."""
 from __future__ import annotations
 
+import datetime
 import json
 
 from fastapi import APIRouter, Query
@@ -10,6 +11,16 @@ from .. import services
 from ..agents import orchestrator
 
 router = APIRouter(prefix="/api")
+
+
+def json_serial(obj):
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def _sse(payload: dict) -> str:
+    return f"data: {json.dumps(payload, default=json_serial)}\n\n"
 
 
 @router.get("/kpis")
@@ -87,8 +98,6 @@ def agent_cards():
     return orchestrator.AGENT_CARDS
 
 
-def _sse(payload: dict) -> str:
-    return f"data: {json.dumps(payload)}\n\n"
 
 
 SSE_HEADERS = {

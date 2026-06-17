@@ -1,7 +1,7 @@
 """
-Credit Suisse legacy client master — nested JSON (NDJSON), cifNumber, ISO dates,
+Summit Bank legacy client master — nested JSON (NDJSON), cifNumber, ISO dates,
 "Last, First" name order, mixed currency. The platform must reconcile these
-against the UBS CSV records (entity resolution).
+against the Apex Bank CSV records (entity resolution).
 """
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from identities import project_client
 
 
 def write(clients_m, out_dir: str) -> dict:
-    path = os.path.join(out_dir, "cs_clients.json")
+    path = os.path.join(out_dir, "summit_clients.json")
     n = 0
     with open(path, "w", encoding="utf-8") as f:
         for i, c in enumerate(clients_m):
-            if "credit_suisse" not in c.in_banks:
+            if "summit" not in c.in_banks:
                 continue
-            p = project_client(c, "credit_suisse")
+            p = project_client(c, "summit")
             rec = {
-                "cifNumber": f"CS{i:09d}",
+                "cifNumber": f"Summit{i:09d}",
                 "client": {
                     "displayName": p["name"],
                     "isLegalEntity": p["is_entity"],

@@ -1,6 +1,6 @@
 config {
   type: "operations",
-  schema: "UBS_POV",
+  schema: "FSI_POV",
   name: "attrition_scores",
   description: "Client flight-risk scores from the BQML attrition model (ML.PREDICT).",
   hasOutput: true,

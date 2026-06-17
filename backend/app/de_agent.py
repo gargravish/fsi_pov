@@ -5,7 +5,7 @@ This is the genuine Google product (not a simulation): a BigQuery + Dataform ELT
 expert exposed as an A2A agent at a fixed tenant path on
 geminidataanalytics.googleapis.com. It operates on a Dataform workspace
 (the required `gcpresource` A2A extension) — here, our live repository
-`ubs_pov_pipeline` / workspace `dev`.
+`fsi_pov_pipeline` / workspace `dev`.
 
 `de_agent_messages()` sends an instruction over the A2A `message:stream`
 endpoint and returns the agent's streamed ROLE_AGENT messages (its real

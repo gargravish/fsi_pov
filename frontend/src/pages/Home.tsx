@@ -12,7 +12,7 @@ const TILES = [
   { to: "/nba", icon: Network, title: "Next-Best-Action", desc: "Grow share-of-wallet", cap: "BigQuery Graph (GQL) · VECTOR_SEARCH" },
   { to: "/retention", icon: ShieldAlert, title: "Flight-Risk Sentinel", desc: "Protect the asset base", cap: "TabularFM" },
   { to: "/forecast", icon: TrendingUp, title: "Forecast Room", desc: "AuM / NNA / revenue", cap: "AI.FORECAST · TimesFM 2.5" },
-  { to: "/ask", icon: MessagesSquare, title: "Ask UBS", desc: "Query the estate in English", cap: "Conversational Analytics" },
+  { to: "/ask", icon: MessagesSquare, title: "Ask Helix", desc: "Query the estate in English", cap: "Conversational Analytics" },
   { to: "/research", icon: FileSearch, title: "Research Brain", desc: "Grounded CIO / KYC answers", cap: "Autonomous embeddings · AI.SEARCH" },
   { to: "/network", icon: GitGraph, title: "Network Guard", desc: "AML / UBO networks", cap: "BigQuery Graph" },
   { to: "/segments", icon: Boxes, title: "Segment Studio", desc: "Behavioural micro-segments", cap: "BigFrames · KMeans" },
@@ -31,7 +31,7 @@ export default function Home() {
           From two banks and two of everything to one agentic intelligence layer.
         </h1>
         <p className="text-muted mt-2 max-w-3xl">
-          UBS Helix unifies the UBS + Credit Suisse estate into one governed BigQuery Client 360,
+          FSI Helix unifies the Apex Bank + Summit Bank estate into one governed BigQuery Client 360,
           then runs autonomous embeddings, TimesFM forecasting, TabularFM risk, BigQuery Graph and
           collaborating agents — all <span className="text-slate-200">inside the warehouse</span>,
           no data movement, no separate ML platform.

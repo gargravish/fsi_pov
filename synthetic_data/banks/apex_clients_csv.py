@@ -1,5 +1,5 @@
 """
-UBS legacy client master — CSV, Swiss-German field names, DD.MM.YYYY dates, CHF.
+Apex Bank legacy client master — CSV, Swiss-German field names, DD.MM.YYYY dates, CHF.
 """
 from __future__ import annotations
 
@@ -23,17 +23,17 @@ def _ch_date(iso: str) -> str:
 
 
 def write(clients_m, out_dir: str) -> dict:
-    path = os.path.join(out_dir, "ubs_clients.csv")
+    path = os.path.join(out_dir, "apex_clients.csv")
     n = 0
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
         for i, c in enumerate(clients_m):
-            if "ubs" not in c.in_banks:
+            if "apex" not in c.in_banks:
                 continue
-            p = project_client(c, "ubs")
+            p = project_client(c, "apex")
             w.writerow({
-                "kunde_nr": f"U{i:08d}",
+                "kunde_nr": f"A{i:08d}",
                 "name": p["name"], "geburtsdatum": _ch_date(p["dob"]),
                 "domizil": p["domicile"], "buchungszentrum": p["booking_centre"],
                 "segment": p["segment_tier"], "risiko_profil": p["risk_profile"],

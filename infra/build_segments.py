@@ -1,7 +1,7 @@
 """
 build_segments.py — REAL behavioural segmentation, fully traceable in BigQuery.
 
-Produces auditable artifacts in raves-altostrat.UBS_POV:
+Produces auditable artifacts in raves-altostrat.FSI_POV:
   • client_features            — engineered numeric feature table
   • client_kmeans              — a real BQML KMEANS model (BigFrames KMeans uses
                                  this same engine under the hood)
@@ -23,7 +23,7 @@ import json
 from google.cloud import bigquery
 
 PROJECT = "raves-altostrat"
-DS = f"{PROJECT}.UBS_POV"
+DS = f"{PROJECT}.FSI_POV"
 client = bigquery.Client(project=PROJECT, location="us-central1")
 
 
@@ -101,7 +101,7 @@ def main() -> None:
         def name_it(st) -> str:
             dom = max([("equity", st["equity"]), ("fixed income", st["fixed_income"]),
                        ("alternatives", st["alternative"])], key=lambda x: x[1])[0]
-            prompt = (f"Give a short (3-5 word) marketing name for a UBS wealth-management client "
+            prompt = (f"Give a short (3-5 word) marketing name for a Apex wealth-management client "
                       f"segment. Stats: avg AuM USD {st['avg_aum_usd']:.0f}, dominant asset {dom}, "
                       f"avg tenure {st['avg_tenure_years']} years, attrition index {st['attrition_index']}, "
                       f"typical tier {st['sample_tier']}. Return only the name.")

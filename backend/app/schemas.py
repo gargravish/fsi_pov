@@ -1,4 +1,4 @@
-"""Pydantic response models for the UBS Helix API."""
+"""Pydantic response models for the FSI Helix API."""
 from __future__ import annotations
 
 from typing import Any, Optional

@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "UBS_POV",
+  schema: "FSI_POV",
   name: "client_features",
   description: "Engineered numeric features per client for behavioural segmentation.",
   tags: ["segmentation"]

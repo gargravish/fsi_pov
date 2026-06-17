@@ -1,5 +1,5 @@
 """
-bq.py — Live BigQuery AI query layer for UBS Helix.
+bq.py — Live BigQuery AI query layer for FSI Helix.
 
 Every method returns native Python structures matching the fixtures, or raises;
 services.py decides whether to fall back to fixtures. Generative text (rationales,
@@ -81,8 +81,8 @@ def gen_json(prompt: str) -> dict:
 def raw_overview() -> dict:
     c = _rows(f"""
       SELECT
-        (SELECT COUNT(*) FROM `{DS}.raw_ubs_clients`) AS ubs,
-        (SELECT COUNT(*) FROM `{DS}.raw_cs_clients`) AS cs,
+        (SELECT COUNT(*) FROM `{DS}.raw_apex_clients`) AS apex,
+        (SELECT COUNT(*) FROM `{DS}.raw_summit_clients`) AS cs,
         (SELECT COUNT(*) FROM `{DS}.clients`) AS resolved,
         (SELECT COUNTIF(dual_banked) FROM `{DS}.clients`) AS dual
     """)[0]
@@ -92,8 +92,8 @@ def raw_overview() -> dict:
     """)
     return {
         "sources": [
-            {"name": "UBS — raw clients (CSV)", "rows": int(c["ubs"])},
-            {"name": "Credit Suisse — raw clients (JSON)", "rows": int(c["cs"])},
+            {"name": "Apex Bank — raw clients (CSV)", "rows": int(c["apex"])},
+            {"name": "Summit Bank — raw clients (JSON)", "rows": int(c["cs"])},
             {"name": "Resolved Client 360", "rows": int(c["resolved"])},
         ],
         "dual_banked": int(c["dual"]),
@@ -126,10 +126,10 @@ def kpis() -> dict:
 def sources() -> list[dict]:
     out = []
     spec = [
-        ("UBS", "Client master", "CSV", "raw_ubs_clients"),
-        ("UBS", "Positions", "PARQUET", "raw_ubs_positions"),
-        ("Credit Suisse", "Client master", "JSON", "raw_cs_clients"),
-        ("Credit Suisse", "Transactions", "NDJSON", "raw_cs_transactions"),
+        ("Apex Bank", "Client master", "CSV", "raw_apex_clients"),
+        ("Apex Bank", "Positions", "PARQUET", "raw_apex_positions"),
+        ("Summit Bank", "Client master", "JSON", "raw_summit_clients"),
+        ("Summit Bank", "Transactions", "NDJSON", "raw_summit_transactions"),
     ]
     for bank, entity, fmt, tbl in spec:
         try:
@@ -198,19 +198,19 @@ def nba(cid: str) -> dict:
                         f"{len(look)} behavioural look-alikes"],
             "rationale": "",
         })
-        asks[f"a{n}"] = (f"Rationale (<=2 sentences) for a UBS advisor to recommend a {prod} mandate "
+        asks[f"a{n}"] = (f"Rationale (<=2 sentences) for a Apex advisor to recommend a {prod} mandate "
                          f"to this {seg} client in {reg} whose household already holds it.")
 
     # cross-platform candidate products (other platform) for single-bank clients
     cross = _cross_platform_products(cid, client)
     for n, rec in enumerate(cross.get("recommendations", [])):
         asks[f"c{n}"] = (f"One sentence on why the '{rec['product']}' — a {cross['other_platform']}-"
-                         f"originated capability now available through the UBS–Credit Suisse "
+                         f"originated capability now available through the Apex–Summit "
                          f"integration — is worth a conversation for this {cross['home_platform']}-only client.")
 
     # ONE Gemini call returns all rationales as JSON (no threads, low latency)
     if asks:
-        prompt = ("You are a UBS advisor copilot. Return ONLY a JSON object mapping each id to a "
+        prompt = ("You are a Apex advisor copilot. Return ONLY a JSON object mapping each id to a "
                   "concrete, compliant rationale string (no performance guarantees). "
                   f"Items: {asks}")
         out = gen_json(prompt)
@@ -232,8 +232,8 @@ def _cross_platform_products(cid: str, client: dict) -> dict:
     banks = (rows[0]["source_banks"] if rows else "") or ""
     if "|" in banks:   # dual-banked -> not a cross-platform candidate
         return {}
-    home = "UBS" if banks == "ubs" else "Credit Suisse"
-    other = "Credit Suisse" if home == "UBS" else "UBS"
+    home = "Apex Bank" if banks == "apex" else "Summit Bank"
+    other = "Summit Bank" if home == "Apex Bank" else "Apex Bank"
     seg = client.get("segment_tier", "HNW")
     prods = _rows(f"""
       SELECT name, product_type, target_segment_hint
@@ -269,8 +269,8 @@ def nba_draft(client_id: str, product: str) -> dict:
                               "region": "EMEA", "risk_profile": "Balanced", "total_aum_usd": 0}
     note = gen_text(
         f"Write a short (~90 words), warm and compliant advisor outreach note recommending the "
-        f"'{product}' to a UBS client. No performance guarantees. Tie it to their profile and the "
-        f"UBS + Credit Suisse integration where natural. Sign as the client's advisor.\n"
+        f"'{product}' to a Apex client. No performance guarantees. Tie it to their profile and the "
+        f"Apex Bank + Summit Bank integration where natural. Sign as the client's advisor.\n"
         f"Client: {c['full_name']}, {c['segment_tier']}, {c.get('region','')}, risk profile "
         f"{c.get('risk_profile','')}, AuM USD {int(c.get('total_aum_usd') or 0)}.")
     return {"product": product, "client": c["full_name"], "note": note}
@@ -298,7 +298,7 @@ def retention_scores() -> list[dict]:
     for i, r in enumerate(rows):
         drivers = []
         if r["dual_banked"]:
-            drivers.append("Dual-banked (UBS + CS)")
+            drivers.append("Dual-banked (Apex + Summit)")
         if (r["outflow_ratio"] or 0) > 0.55:
             drivers.append("Elevated outflow ratio")
         if (r["recent_net_flow_usd"] or 0) < 0:
@@ -306,7 +306,7 @@ def retention_scores() -> list[dict]:
         drivers = drivers or ["Behavioural risk factors"]
         if i < AI_PLAYS:
             play = gen_text(
-                f"In one sentence, draft a retention action for a {r['segment_tier']} UBS "
+                f"In one sentence, draft a retention action for a {r['segment_tier']} Apex Bank "
                 f"client at high flight risk (drivers: {', '.join(drivers)}). Be specific and compliant.")
         else:
             play = (f"Schedule a relationship review for this {r['segment_tier']} client; address "
@@ -369,7 +369,7 @@ def retention_campaign(client_id: str) -> dict:
 
     drivers = []
     if c["dual_banked"]:
-        drivers.append("Dual-banked (UBS + Credit Suisse)")
+        drivers.append("Dual-banked (Apex Bank + Summit Bank)")
     if (c["outflow_ratio"] or 0) > 0.55:
         drivers.append("Elevated outflow ratio")
     if recent_net < 0:
@@ -393,7 +393,7 @@ def retention_campaign(client_id: str) -> dict:
                f" This {cross.get('home_platform')}-only client can now also be offered "
                f"{cross.get('other_platform')}-originated capabilities post-integration: {cross_names}.")
     prompt = (
-        "You are a UBS retention strategist. Using ONLY the facts below, produce a targeted "
+        "You are a Apex Bank retention strategist. Using ONLY the facts below, produce a targeted "
         "retention campaign for this client as JSON with keys: objective (string), "
         "retention_offer (string), next_best_action (string — base it on the household whitespace "
         "OR the cross_platform products if present), preferred_channel (string), "
@@ -445,9 +445,9 @@ def forecast(metric: str, division: str, region: str) -> dict:
       FROM `{DS}.{fc_tbl}`{wsql} GROUP BY ts ORDER BY ts
     """)
     commentary = gen_text(
-        f"In 2 sentences, explain what is driving the {metric.upper()} forecast for UBS "
+        f"In 2 sentences, explain what is driving the {metric.upper()} forecast for Apex Bank "
         f"{division or 'all divisions'}/{region or 'all regions'} into 2026, referencing the "
-        f"Credit Suisse integration and the $200bn net-new-money ambition.")
+        f"Summit Bank integration and the $200bn net-new-money ambition.")
     for h in hist:
         h["actual"] = h["yhat"]
     return {"metric": metric, "history": hist, "forecast": fc, "commentary": commentary}
@@ -456,7 +456,7 @@ def forecast(metric: str, division: str, region: str) -> dict:
 def research_search(q: str) -> list[dict]:
     sql = f"""
     SELECT base.document_id, base.title, base.doc_type, base.gcs_uri,
-           SUBSTR(base.chunk_text, 0, 240) snippet, (1 - distance) score
+           SApex BankTR(base.chunk_text, 0, 240) snippet, (1 - distance) score
     FROM VECTOR_SEARCH(
       TABLE `{DS}.doc_search`, 'embedding',
       (SELECT ml_generate_embedding_result FROM ML.GENERATE_EMBEDDING(
@@ -478,7 +478,7 @@ def research_answer(q: str) -> dict:
     hits = research_search(q)
     context = "\n\n".join(f"[{h['document_id']}] {h['title']}: {h['snippet']}" for h in hits[:4])
     answer = gen_text(
-        f"You are a UBS investment-research assistant. Answer the question using ONLY the "
+        f"You are a Apex Bank investment-research assistant. Answer the question using ONLY the "
         f"context, cite document IDs inline like [DOC_000012], and be concise and compliant.\n\n"
         f"Question: {q}\n\nContext:\n{context}")
     return {"answer": answer,
@@ -517,7 +517,7 @@ def segments() -> list[dict]:
 
 
 _SCHEMA_HINT = """
-Tables in `raves-altostrat.UBS_POV` (BigQuery Standard SQL):
+Tables in `raves-altostrat.FSI_POV` (BigQuery Standard SQL):
 - clients(client_id, full_name, segment_tier, domicile, booking_centre, region,
   risk_profile, kyc_status, total_aum_usd, dual_banked, tenure_days)
 - accounts(account_id, client_id, account_type, booking_centre, currency, balance_usd)
@@ -532,7 +532,7 @@ Tables in `raves-altostrat.UBS_POV` (BigQuery Standard SQL):
 def ask_ca(q: str) -> list[dict]:
     """
     Conversational Analytics API (Gemini Data Analytics) — query the real BigQuery
-    data agent grounded on UBS_POV. Streams systemMessage chunks (THOUGHT /
+    data agent grounded on FSI_POV. Streams systemMessage chunks (THOUGHT /
     FINAL_RESPONSE / data.generatedSql / data.result / chart) and maps them to the
     UI block format. Returns [] on any failure so callers can fall back.
     """
@@ -629,7 +629,7 @@ def ask(q: str) -> list[dict]:
         blocks.append({"type": "sql", "sql": sql})
     except Exception as e:
         blocks.append({"type": "text", "text": gen_text(
-            f"Answer this UBS wealth-management question conversationally: {q}")})
+            f"Answer this Apex wealth-management question conversationally: {q}")})
         blocks.append({"type": "sql", "sql": f"-- generation/exec note: {e}\n{sql}"})
     return blocks
 
@@ -736,7 +736,7 @@ def network_patterns() -> dict:
             anomalies.append({
                 "id": "cluster", "type": "Cross-bank Concentration", "severity": "medium",
                 "summary": f"A {cl['members']}-member household holds ≈USD {int(cl['aum_m'])}m with "
-                           f"{cl['dual']} dual-banked (UBS + Credit Suisse) members — concentration "
+                           f"{cl['dual']} dual-banked (Apex + Summit) members — concentration "
                            f"and integration-overlap risk to review.",
                 "subgraph": {"nodes": nodes, "edges": edges},
                 "details": {"columns": ["client_id", "full_name", "segment_tier", "dual_banked"],

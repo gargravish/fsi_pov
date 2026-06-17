@@ -32,8 +32,8 @@ export default function Ask() {
   // collapse consecutive thinking blocks: show only the latest few as a trail
   return (
     <div className="space-y-6">
-      <SectionTitle kicker="Conversational Analytics API · live data agent" title="Ask UBS"
-        sub="Any banker or executive can query the whole estate in plain English. The BigQuery Conversational Analytics data agent (UBS_POV) streams its reasoning, then returns text, tables, charts and the SQL it ran." />
+      <SectionTitle kicker="Conversational Analytics API · live data agent" title="Ask Helix"
+        sub="Any banker or executive can query the whole estate in plain English. The BigQuery Conversational Analytics data agent (FSI_POV) streams its reasoning, then returns text, tables, charts and the SQL it ran." />
 
       <Card>
         <div className="flex gap-2">

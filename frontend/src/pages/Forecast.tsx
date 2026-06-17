@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { Card, SectionTitle, Badge, Loading } from "../components/ui";
 import ForecastChart from "../components/ForecastChart";
 
-const METRICS = [{ id: "nna", label: "Net New Money" }, { id: "aum", label: "AuM" }, { id: "revenue", label: "Revenue" }];
+const METRISummit = [{ id: "nna", label: "Net New Money" }, { id: "aum", label: "AuM" }, { id: "revenue", label: "Revenue" }];
 const DIVS = ["all", "GWM", "P&C", "Asset Management", "Investment Bank"];
 const REGIONS = ["all", "Switzerland", "EMEA", "Americas", "APAC"];
 
@@ -24,7 +24,7 @@ export default function Forecast() {
 
       <Card>
         <div className="flex flex-wrap gap-2 mb-4">
-          {METRICS.map((m) => (
+          {METRISummit.map((m) => (
             <button key={m.id} onClick={() => setMetric(m.id)}
               className={metric === m.id ? "btn" : "btn-ghost"}>{m.label}</button>
           ))}

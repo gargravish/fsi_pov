@@ -14,7 +14,7 @@ DIVISIONS = ["GWM", "P&C", "Asset Management", "Investment Bank"]
 CENTRES = ["Zurich", "Geneva", "Basel", "Lugano", "London", "New York",
            "Hong Kong", "Singapore"]
 PRODUCTS = [
-    "UBS Manage Advanced Discretionary Mandate",
+    "Apex Manage Advanced Discretionary Mandate",
     "Private Markets Access Programme",
     "Lombard Credit Facility",
     "Sustainable Investing Discretionary Mandate",
@@ -47,7 +47,7 @@ for i in range(60):
         "region": _R.choice(REGIONS),
         "total_aum_usd": round(aum, 2),
         "dual_banked": _dual,
-        "source_banks": "credit_suisse|ubs" if _dual else _R.choice(["ubs", "credit_suisse"]),
+        "source_banks": "summit|apex" if _dual else _R.choice(["apex", "summit"]),
         "risk_profile": _R.choice(["Conservative", "Balanced", "Growth", "Aggressive"]),
     })
 
@@ -63,29 +63,29 @@ def kpis() -> dict:
 def raw_overview() -> dict:
     return {
         "sources": [
-            {"name": "UBS — raw clients (CSV)", "rows": 24321},
-            {"name": "Credit Suisse — raw clients (JSON)", "rows": 24375},
+            {"name": "Apex Bank — raw clients (CSV)", "rows": 24321},
+            {"name": "Summit Bank — raw clients (JSON)", "rows": 24375},
             {"name": "Resolved Client 360", "rows": 40000},
         ],
         "dual_banked": 8696,
         "sample": [
-            {"client_id": "CLI_0001288", "full_name": "Hans Müller", "segment_tier": "UHNW", "source_banks": "credit_suisse|ubs", "dual_banked": True},
-            {"client_id": "CLI_0004102", "full_name": "Sophie Favre", "segment_tier": "Family Office", "source_banks": "ubs", "dual_banked": False},
-            {"client_id": "CLI_0009934", "full_name": "Wei Chen", "segment_tier": "UHNW", "source_banks": "credit_suisse|ubs", "dual_banked": True},
-            {"client_id": "CLI_0002281", "full_name": "Elena Bernasconi", "segment_tier": "HNW", "source_banks": "ubs", "dual_banked": False},
+            {"client_id": "CLI_0001288", "full_name": "Hans Müller", "segment_tier": "UHNW", "source_banks": "summit|apex", "dual_banked": True},
+            {"client_id": "CLI_0004102", "full_name": "Sophie Favre", "segment_tier": "Family Office", "source_banks": "apex", "dual_banked": False},
+            {"client_id": "CLI_0009934", "full_name": "Wei Chen", "segment_tier": "UHNW", "source_banks": "summit|apex", "dual_banked": True},
+            {"client_id": "CLI_0002281", "full_name": "Elena Bernasconi", "segment_tier": "HNW", "source_banks": "apex", "dual_banked": False},
         ],
     }
 
 
 def sources() -> list[dict]:
     return [
-        {"bank": "UBS", "entity": "Client master", "format": "CSV", "rows": 24890, "status": "mapped"},
-        {"bank": "UBS", "entity": "Portfolios", "format": "FIXED_WIDTH", "rows": 37120, "status": "mapped"},
-        {"bank": "UBS", "entity": "Positions", "format": "PARQUET", "rows": 248300, "status": "mapped"},
-        {"bank": "UBS", "entity": "Advisors", "format": "XLSX", "rows": 451, "status": "mapped"},
-        {"bank": "Credit Suisse", "entity": "Client master", "format": "JSON", "rows": 24510, "status": "mapped"},
-        {"bank": "Credit Suisse", "entity": "Accounts", "format": "XML", "rows": 47900, "status": "mapped"},
-        {"bank": "Credit Suisse", "entity": "Transactions", "format": "NDJSON", "rows": 263400, "status": "mapped"},
+        {"bank": "Apex Bank", "entity": "Client master", "format": "CSV", "rows": 24890, "status": "mapped"},
+        {"bank": "Apex Bank", "entity": "Portfolios", "format": "FIXED_WIDTH", "rows": 37120, "status": "mapped"},
+        {"bank": "Apex Bank", "entity": "Positions", "format": "PARQUET", "rows": 248300, "status": "mapped"},
+        {"bank": "Apex Bank", "entity": "Advisors", "format": "XLSX", "rows": 451, "status": "mapped"},
+        {"bank": "Summit Bank", "entity": "Client master", "format": "JSON", "rows": 24510, "status": "mapped"},
+        {"bank": "Summit Bank", "entity": "Accounts", "format": "XML", "rows": 47900, "status": "mapped"},
+        {"bank": "Summit Bank", "entity": "Transactions", "format": "NDJSON", "rows": 263400, "status": "mapped"},
     ]
 
 
@@ -95,8 +95,8 @@ def unify_result() -> dict:
         "dual_banked_clusters": 8894,
         "accuracy": 96.4,
         "before": {
-            "_source": "credit_suisse / cs_clients.json",
-            "cifNumber": "CS000128844",
+            "_source": "summit / summit_clients.json",
+            "cifNumber": "Summit000128844",
             "client": {"displayName": "MÜLLER, H.", "clientSegment": "UHNW",
                        "dateOfBirth": "1968-04-12"},
             "address": {"country": "CH"}, "booking": {"baseCcy": "CHF"},
@@ -105,7 +105,7 @@ def unify_result() -> dict:
             "client_id": "CLI_0001288",
             "full_name": "Hans Müller",
             "segment_tier": "UHNW", "domicile": "Switzerland",
-            "source_banks": ["credit_suisse", "ubs"], "dual_banked": True,
+            "source_banks": ["summit", "apex"], "dual_banked": True,
             "total_aum_usd": 134_200_000.0,
         },
     }
@@ -160,12 +160,12 @@ def nba(cid: str) -> dict:
          "rationale": "Behaviourally similar clients increasingly hold sustainable mandates."},
     ]
     cross = {} if c["dual_banked"] else {
-        "home_platform": "UBS", "other_platform": "Credit Suisse",
+        "home_platform": "Apex Bank", "other_platform": "Summit Bank",
         "recommendations": [
-            {"product": "Capital Protection Structured Solutions", "product_type": "structured", "origin_platform": "Credit Suisse",
-             "rationale": "A Credit Suisse-originated structured solution, now available post-integration, that offers defined downside protection suited to this client's risk profile."},
-            {"product": "Lombard Credit Facility", "product_type": "lombard", "origin_platform": "Credit Suisse",
-             "rationale": "Securities-backed lending — a Credit Suisse strength now on the unified shelf — can unlock liquidity without liquidating the portfolio."},
+            {"product": "Capital Protection Structured Solutions", "product_type": "structured", "origin_platform": "Summit Bank",
+             "rationale": "A Summit Bank-originated structured solution, now available post-integration, that offers defined downside protection suited to this client's risk profile."},
+            {"product": "Lombard Credit Facility", "product_type": "lombard", "origin_platform": "Summit Bank",
+             "rationale": "Securities-backed lending — a Summit Bank strength now on the unified shelf — can unlock liquidity without liquidating the portfolio."},
         ]}
     return {"client": c, "graph": graph, "actions": actions, "cross_platform": cross}
 
@@ -173,11 +173,11 @@ def nba(cid: str) -> dict:
 def nba_draft(client_id: str, product: str) -> dict:
     c = client_by_id(client_id)
     first = c["full_name"].split()[0]
-    note = (f"Dear {first},\n\nAs we bring your UBS and Credit Suisse relationships together, I've "
+    note = (f"Dear {first},\n\nAs we bring your Apex Bank and Summit Bank relationships together, I've "
             f"been reviewing your portfolio and believe the {product} could be a strong fit for your "
             f"objectives and {c.get('risk_profile','balanced')} risk profile. Several clients in your "
             f"household already benefit from it. I'd welcome a brief call to walk through how it works "
-            f"and our latest CIO views — no obligation. Warm regards,\nYour UBS advisor")
+            f"and our latest CIO views — no obligation. Warm regards,\nYour Apex advisor")
     return {"product": product, "client": c["full_name"], "note": note}
 
 
@@ -197,7 +197,7 @@ def retention_scores() -> list[dict]:
         risk = _R.uniform(0.55, 0.93) if c["dual_banked"] else _R.uniform(0.2, 0.6)
         drivers = []
         if c["dual_banked"]:
-            drivers.append("Dual-banked (UBS + CS)")
+            drivers.append("Dual-banked (Apex + Summit)")
         drivers += _R.sample(["Recent net outflows", "Advisor change", "Fee sensitivity",
                               "KYC review pending", "Reduced txn velocity"], 2)
         out.append({
@@ -213,7 +213,7 @@ def retention_scores() -> list[dict]:
 
 def retention_campaign(client_id: str) -> dict:
     c = client_by_id(client_id)
-    drivers = ["Dual-banked (UBS + Credit Suisse)", "Net outflows over the last 6 months"] if c["dual_banked"] \
+    drivers = ["Dual-banked (Apex Bank + Summit Bank)", "Net outflows over the last 6 months"] if c["dual_banked"] \
         else ["Fee sensitivity", "Reduced transaction velocity"]
     whitespace = [{"product": "discretionary", "household_signal": 3},
                   {"product": "alternative", "household_signal": 2}]
@@ -237,18 +237,18 @@ def retention_campaign(client_id: str) -> dict:
             "next_best_action": "Introduce a discretionary mandate (held by household members) to capture idle cash.",
             "preferred_channel": "Senior advisor call, followed by an in-person review",
             "talking_points": [
-                "Acknowledge the Credit Suisse integration and reassure on continuity of service",
+                "Acknowledge the Summit Bank integration and reassure on continuity of service",
                 "18% idle cash could be deployed into a discretionary mandate",
                 "Household members already hold discretionary & alternatives — offer parity",
                 "Consolidated pricing to address fee sensitivity",
             ],
-            "email_subject": "Bringing your UBS & Credit Suisse relationships together — a portfolio review",
-            "email_body": (f"Dear {c['full_name'].split()[0]},\n\nAs we complete the integration of UBS and "
-                           "Credit Suisse, I wanted to reach out personally to ensure your portfolio is working "
+            "email_subject": "Bringing your Apex Bank & Summit Bank relationships together — a portfolio review",
+            "email_body": (f"Dear {c['full_name'].split()[0]},\n\nAs we complete the integration of Apex Bank and "
+                           "Summit Bank, I wanted to reach out personally to ensure your portfolio is working "
                            "as hard as it can for you. I've noticed a meaningful cash balance that we could put to "
                            "work, and several solutions your wider household already benefits from that may suit "
                            "your objectives. I'd welcome a short call to share our latest CIO views and a "
-                           "consolidated view of your relationships.\n\nWarm regards,\nR. Brunner, UBS"),
+                           "consolidated view of your relationships.\n\nWarm regards,\nR. Brunner, Apex Bank"),
         },
     }
 
@@ -275,16 +275,16 @@ def forecast(metric: str, division: str, region: str) -> dict:
 
 def research_search(q: str) -> list[dict]:
     docs = [
-        ("DOC_000012", "UBS CIO Research — Private credit allocation for UHNW portfolios",
+        ("DOC_000012", "Apex CIO Research — Private credit allocation for UHNW portfolios",
          "cio_research", "Our CIO view favours a structural allocation to private credit for "
          "qualified UHNW and family-office clients, citing attractive risk-adjusted yields..."),
-        ("DOC_000044", "UBS CIO Research — Global asset allocation: balanced positioning into 2026",
+        ("DOC_000044", "Apex CIO Research — Global asset allocation: balanced positioning into 2026",
          "cio_research", "Our balanced multi-asset stance holds a modest overweight to global "
          "equities funded from cash, neutral duration in high-grade bonds..."),
         ("DOC_000091", "Suitability Assessment — CLI_0002281",
          "suitability", "Investment objective: balanced growth and income. Structured products "
          "limited to 15% of the portfolio..."),
-        ("DOC_000133", "UBS CIO Research — APAC wealth: capturing the next decade of growth",
+        ("DOC_000133", "Apex CIO Research — APAC wealth: capturing the next decade of growth",
          "cio_research", "Asia-Pacific remains the fastest-growing wealth pool. We highlight "
          "onshore and offshore booking considerations and currency hedging..."),
     ]
@@ -292,7 +292,7 @@ def research_search(q: str) -> list[dict]:
     for i, (did, title, dt, txt) in enumerate(docs):
         out.append({"document_id": did, "title": title, "doc_type": dt,
                     "snippet": txt, "score": round(0.92 - i * 0.07, 3),
-                    "gcs_uri": f"gs://ubs_pov/raw/documents/{did}.pdf"})
+                    "gcs_uri": f"gs://fsi_pov/raw/documents/{did}.pdf"})
     return out
 
 
@@ -344,8 +344,8 @@ def ask(q: str) -> list[dict]:
          "spec": {"mark": "bar", "x": "booking_centre", "y": "nna_usd_m"}},
         {"type": "sql",
          "sql": "SELECT booking_centre, ROUND(SUM(net_new_money_usd)/1e6,1) AS nna_usd_m\n"
-                "FROM `raves-altostrat.UBS_POV.client_flows` f\n"
-                "JOIN `raves-altostrat.UBS_POV.clients` c USING (client_id)\n"
+                "FROM `raves-altostrat.FSI_POV.client_flows` f\n"
+                "JOIN `raves-altostrat.FSI_POV.clients` c USING (client_id)\n"
                 "WHERE f.month >= '2026-01-01'\nGROUP BY booking_centre\nORDER BY nna_usd_m DESC"},
     ]
 
@@ -382,7 +382,7 @@ def network_patterns() -> dict:
                               ["CLI_0006654", "Luca Rossi", "UHNW"]]},
          "gql": "MATCH (e:Entity {risk_flag:true})-[:OWNED_BY]->(c:Client)-[:BELONGS_TO]->(h:Household)<-[:BELONGS_TO]-(m:Client)\nRETURN e, c, COLLECT(m)"},
         {"id": "cluster", "type": "Cross-bank Concentration", "severity": "medium",
-         "summary": "A 6-member household holds ≈USD 420m with 3 dual-banked (UBS + Credit Suisse) "
+         "summary": "A 6-member household holds ≈USD 420m with 3 dual-banked (Apex + Summit) "
                     "members — concentration and integration-overlap risk to review.",
          "subgraph": {
              "nodes": [{"id": "HH", "label": "Household (USD 420m)", "type": "household", "risk": "med"},

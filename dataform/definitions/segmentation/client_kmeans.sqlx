@@ -1,6 +1,6 @@
 config {
   type: "operations",
-  schema: "UBS_POV",
+  schema: "FSI_POV",
   name: "client_kmeans",
   description: "BQML KMEANS behavioural-segmentation model (the BigFrames KMeans engine).",
   hasOutput: true,

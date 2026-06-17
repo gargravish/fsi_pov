@@ -1,17 +1,17 @@
 """
 conversational.py — Conversational Analytics (Gemini Data Analytics) bridge for
-"Ask UBS". Streams a natural-language question to the published BigQuery data
+"Ask Helix". Streams a natural-language question to the published BigQuery data
 agent and yields UI blocks **as they arrive** (true streaming), so the frontend
 shows live thinking progress instead of waiting for the whole answer.
 
-Block dicts yielded (match the Ask UBS frontend):
+Block dicts yielded (match the Ask Helix frontend):
     {"type": "thinking", "text": ...}    progress breadcrumb (agent reasoning)
     {"type": "text",     "text": ...}    final narrative answer (markdown)
     {"type": "sql",      "sql": ...}     the generated BigQuery SQL
     {"type": "table",    "columns": [...], "rows": [[...]]}
     {"type": "chart",    "spec": {mark,x,y,title}, "vega": <vega-lite spec>}
 
-The agent (display name UBS_POV) already carries schema, synonyms, joins and
+The agent (display name FSI_POV) already carries schema, synonyms, joins and
 example queries, so we only pass the question.
 """
 from __future__ import annotations
@@ -182,7 +182,7 @@ def start_conversation() -> str:
     client = gda.DataChatServiceClient()
     conv = gda.Conversation(agents=[_agent_name()])
     created = client.create_conversation(
-        parent=_parent(), conversation_id=f"ubs-{_uuid.uuid4().hex[:12]}", conversation=conv)
+        parent=_parent(), conversation_id=f"apex-{_uuid.uuid4().hex[:12]}", conversation=conv)
     return created.name
 
 

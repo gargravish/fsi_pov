@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "UBS_POV",
+  schema: "FSI_POV",
   name: "forecast_nna",
   description: "12-month Net-New-Money forecast by division x region (AI.FORECAST / TimesFM 2.5).",
   tags: ["forecasting"]

@@ -18,7 +18,7 @@ from config import MASTER_SEED, N_DOCUMENTS, DOC_TYPES, DOC_TYPE_WEIGHTS, docs_o
 
 _rng = random.Random(MASTER_SEED ^ 0xD0C5)
 
-_CIO_TOPICS = [
+_CIO_TOPISummit = [
     ("Private credit allocation for UHNW portfolios",
      "Our CIO view favours a structural allocation to private credit for qualified "
      "UHNW and family-office clients, citing attractive risk-adjusted yields, floating-rate "
@@ -54,8 +54,8 @@ def _para(text: str) -> str:
 def _doc_text(doc_type: str, client_id: str | None) -> tuple[str, str]:
     """Return (title, body)."""
     if doc_type == "cio_research":
-        title, body = _rng.choice(_CIO_TOPICS)
-        return f"UBS CIO Research — {title}", body
+        title, body = _rng.choice(_CIO_TOPISummit)
+        return f"Apex CIO Research — {title}", body
     if doc_type == "kyc":
         sow = _rng.choice(["entrepreneurial business sale", "inherited family wealth",
                            "executive compensation", "real-estate portfolio",
@@ -128,7 +128,7 @@ def generate(clients: list[dict]) -> list[dict]:
                 y -= 0.5 * cm
             c.setFont("Helvetica-Oblique", 8)
             c.drawString(2 * cm, 1.5 * cm,
-                         "UBS Helix POV — synthetic document. Not investment advice.")
+                         "FSI Helix POV — synthetic document. Not investment advice.")
             c.save()
         else:
             # fallback: write a .txt so the pipeline still works without reportlab

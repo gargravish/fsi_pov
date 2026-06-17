@@ -19,7 +19,7 @@ export default function Unify() {
   return (
     <div className="space-y-6">
       <SectionTitle kicker="Data Engineering Agent" title="Unify & Resolve"
-        sub="Collapse the fragmented UBS + Credit Suisse estate into one governed Client 360 — AI-mapped schemas and embedding-based entity resolution rediscover dual-banked clients." />
+        sub="Collapse the fragmented Apex Bank + Summit Bank estate into one governed Client 360 — AI-mapped schemas and embedding-based entity resolution rediscover dual-banked clients." />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
@@ -65,7 +65,7 @@ export default function Unify() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-muted mb-1">Before — raw Credit Suisse JSON</div>
+                  <div className="text-xs text-muted mb-1">Before — raw Summit Bank JSON</div>
                   <pre className="text-[11px] bg-ink border border-edge rounded-xl p-3 overflow-auto max-h-56 text-amber-200">{JSON.stringify(result.before, null, 2)}</pre>
                 </div>
                 <div>

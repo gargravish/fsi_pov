@@ -9,7 +9,7 @@ import logging
 from .config import settings
 from .fixtures import data as fx
 
-log = logging.getLogger("ubs_helix")
+log = logging.getLogger("apex_helix")
 
 
 def _live(fn_name: str, *args):
@@ -86,7 +86,7 @@ def network_patterns():
 
 
 def ask(q: str):
-    """Stream Ask UBS blocks as they arrive (generator).
+    """Stream Ask Helix blocks as they arrive (generator).
 
     Live: the real Conversational Analytics data agent (true streaming, with
     thinking breadcrumbs). On failure: Gemini NL->SQL, then deterministic fixtures.

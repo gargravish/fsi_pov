@@ -1,7 +1,7 @@
-# UBS Helix — C-Level Workshop Pitch
+# FSI Helix — C-Level Workshop Pitch
 
-> A 12–15 minute narrated walk-through of UBS Helix on the **Google Cloud Agentic Data
-> Platform**. The spine is the **Credit Suisse integration**: two banks, two of everything,
+> A 12–15 minute narrated walk-through of FSI Helix on the **Google Cloud Agentic Data
+> Platform**. The spine is the **Summit Bank integration**: two banks, two of everything,
 > overlapping clients — turned into one governed, agent-driven intelligence layer in BigQuery.
 > All data is synthetic.
 
@@ -10,18 +10,18 @@
 ## The one-liner
 
 > *"You're merging the two largest pools of private wealth on earth. Your data lives in two
-> of everything. UBS Helix turns that into your biggest asset — a single, governed, AI-native
+> of everything. FSI Helix turns that into your biggest asset — a single, governed, AI-native
 > lakehouse in BigQuery where collaborating agents drive net-new-money, retention, cross-sell,
 > forecasting and financial-crime defence, with no data movement and no separate ML platform."*
 
 ## The 60-second elevator version (open with this)
 
-> *"UBS is completing the largest banking integration in history. The hard part isn't the
+> *"Apex Bank is completing the largest banking integration in history. The hard part isn't the
 > balance sheet — it's the data: two client masters, two product catalogues, two of every
 > system, and clients who bank with both. Today that fragmentation is a cost and a risk.
 > What if it were your single biggest growth asset?*
 >
-> *UBS Helix unifies the UBS and Credit Suisse estate into one governed Client 360 in BigQuery —
+> *FSI Helix unifies the Apex Bank and Summit Bank estate into one governed Client 360 in BigQuery —
 > and then, in the same place the data lives, runs the AI: it finds the dual-banked clients,
 > predicts who's about to walk and drafts the save, tells every advisor the next best action
 > for each household, forecasts net-new-money toward your $200bn ambition, answers any question
@@ -31,7 +31,7 @@
 
 ## Business value — the "so what"
 
-| Lever | Today's pain | What UBS Helix changes | Tied to |
+| Lever | Today's pain | What FSI Helix changes | Tied to |
 |---|---|---|---|
 | **Integration** | Years of manual reconciliation across two estates | AI maps schemas & resolves dual-banked clients automatically | End-2026 completion |
 | **Net new money** | Cross-sell trapped in advisor heads & siloed data | Graph + look-alike NBA surfaces the next mandate per household | **$200bn NNA/yr by 2028** |
@@ -40,13 +40,13 @@
 | **Risk** | Financial-crime patterns hide across booking centres | Multi-hop graph surfaces structuring / UBO networks | Regulatory confidence |
 | **Operating model** | Every insight needs a data team round-trip | Agents collaborate over A2A to deliver the answer to a goal | Scales the $13bn savings into capacity |
 
-## Why this lands for UBS
+## Why this lands for Apex Bank
 
 - **Integration completes end-2026** — client-account migration and infrastructure
   decommissioning is fundamentally a **data-unification + AI-activation** problem.
 - **$13bn cost-savings programme** funds technology and AI — this is where the gravity should sit.
 - **~$200bn NNA/yr by 2028** and a **<70% cost/income** ambition — every screen ties to those numbers.
-- It **complements** the existing Azure/UBS-Red assistant strategy by giving agents *governed,
+- It **complements** the existing Azure/Apex Bank-Red assistant strategy by giving agents *governed,
   structured, real* enterprise data to reason over.
 
 ---
@@ -57,9 +57,9 @@
    layer." Point at the live KPIs: 40k clients unified, ~22% dual-banked, NNA tracking toward
    the $200bn ambition, entity-resolution accuracy.
 
-2. **Unify & Resolve — finish the integration.** Show the seven fragmented sources (UBS CSV /
-   fixed-width / Parquet / xlsx; CS JSON / XML / NDJSON). Click **Run unification** → watch the
-   raw mess collapse into one Client 360; the before/after card shows a messy Credit Suisse JSON
+2. **Unify & Resolve — finish the integration.** Show the seven fragmented sources (Apex Bank CSV /
+   fixed-width / Parquet / xlsx; Summit JSON / XML / NDJSON). Click **Run unification** → watch the
+   raw mess collapse into one Client 360; the before/after card shows a messy Summit Bank JSON
    record resolved to a clean canonical client, and the dual-banked counter ticks up.
    *Capability: AI.GENERATE_TABLE mapping + autonomous embeddings + VECTOR_SEARCH + AI.GENERATE_BOOL — run by the Data Engineering agent.*
 
@@ -74,7 +74,7 @@
 5. **Forecast Room — plan the growth.** NNA by division/region, 12-month horizon with confidence
    bands, tracking the $200bn ambition; AI explains the drivers. *Capability: AI.FORECAST / TimesFM 2.5 — zero training.*
 
-6. **Ask UBS — democratise analytics.** Type *"Which booking centre grew NNA fastest?"* → get a
+6. **Ask Helix — democratise analytics.** Type *"Which booking centre grew NNA fastest?"* → get a
    chart, a table, and the **generated SQL**. No BI bottleneck. *Capability: Conversational Analytics.*
 
 7. **Research Brain — advisor productivity.** Search *"CIO view on private credit for UHNW"* →
@@ -104,7 +104,7 @@
 
 - **"Is this real or mocked?"** Live mode runs real BigQuery AI on `raves-altostrat`. Demo mode
   uses fixtures for air-gapped rooms. Same UI, one flag.
-- **"What about Azure / UBS Red?"** Complementary — Helix is the *data-and-AI core* that feeds
+- **"What about Azure / Apex Bank Red?"** Complementary — Helix is the *data-and-AI core* that feeds
   governed structured data to whichever assistant surface you choose.
 - **"TabularFM / TimesFM maturity?"** TimesFM forecasting is live here; TabularFM ships with a
   GA boosted-tree default and the same scoring contract, so nothing in the UI changes.

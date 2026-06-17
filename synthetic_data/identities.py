@@ -2,7 +2,7 @@
 identities.py — Hidden master client / household / legal-entity / advisor pool.
 
 This is the "ground truth" for the post-merger entity-resolution game. Each
-source bank (UBS, Credit Suisse) sees a *mutated projection* of a client
+source bank (Apex Bank, Summit Bank) sees a *mutated projection* of a client
 (different name order, domicile spelling, email domain, client number). The
 master_client_id is NEVER written to source files; it lives only in
 ground_truth_identity_map.csv for offline accuracy scoring.
@@ -45,8 +45,8 @@ _DOMICILES = {
     "Hong Kong": ("Hong Kong", "apac"), "Singapore": ("Singapore", "apac"),
 }
 
-_UBS_EMAIL = ["bluewin.ch", "gmail.com", "outlook.com", "icloud.com", "swissonline.ch"]
-_CS_EMAIL = ["gmx.ch", "yahoo.com", "hotmail.com", "protonmail.com", "sunrise.ch"]
+_APEX_EMAIL = ["bluewin.ch", "gmail.com", "outlook.com", "icloud.com", "swissonline.ch"]
+_SUMMIT_EMAIL = ["gmx.ch", "yahoo.com", "hotmail.com", "protonmail.com", "sunrise.ch"]
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ def _build() -> tuple[list[MasterClient], dict[str, Household]]:
             risk_profile=rng.choice(RISK_PROFILES),
             kyc_status=rng.choices(KYC_STATUSES, weights=KYC_WEIGHTS, k=1)[0],
             languages=langs,
-            email=f"{(first or last).lower()}.{last.lower()}@{rng.choice(_UBS_EMAIL)}".replace(" ", ""),
+            email=f"{(first or last).lower()}.{last.lower()}@{rng.choice(_APEX_EMAIL)}".replace(" ", ""),
             phone=_phone(), address_line=addr, city=city, base_aum_usd=base_aum,
             household_id=hid, advisor_seed=rng.randint(0, N_ADVISORS - 1),
         ))
@@ -214,7 +214,7 @@ def get_advisors() -> list[Advisor]:
         bc = rng.choice(BOOKING_CENTRES)
         _, flavour = _DOMICILES.get(bc, ("Switzerland", "ch_de"))
         fk = _FAKERS[flavour]
-        bank = rng.choice(["ubs", "credit_suisse"])
+        bank = rng.choice(["apex", "summit"])
         out.append(Advisor(
             advisor_id=f"ADV_{i:05d}", name=fk.name(),
             role=rng.choice(["CA", "RM"]),
@@ -262,23 +262,23 @@ def assign_banks(clients: list[MasterClient]) -> None:
     for c in clients:
         r = rng.random()
         if r < DUAL_BANK_FRACTION:
-            c.in_banks = ["ubs", "credit_suisse"]
+            c.in_banks = ["apex", "summit"]
         elif r < DUAL_BANK_FRACTION + (1 - DUAL_BANK_FRACTION) / 2:
-            c.in_banks = ["ubs"]
+            c.in_banks = ["apex"]
         else:
-            c.in_banks = ["credit_suisse"]
+            c.in_banks = ["summit"]
 
 
 def _mutate_name(c: MasterClient, bank: str, rng: random.Random) -> str:
     """Slightly mutate the displayed name per bank (order, abbreviation, casing)."""
     if c.is_entity:
         nm = c.full_name
-        if bank == "credit_suisse" and rng.random() < 0.4:
+        if bank == "summit" and rng.random() < 0.4:
             nm = nm.replace("Holdings", "Hldg").replace("Foundation", "Fdn")
         return nm.upper() if rng.random() < 0.2 else nm
     first, last = c.first_name, c.last_name
-    if bank == "credit_suisse" and rng.random() < 0.45:
-        # CS stores "Last, First"
+    if bank == "summit" and rng.random() < 0.45:
+        # Summit stores "Last, First"
         if rng.random() < 0.3:
             first = first[0] + "."
         return f"{last}, {first}"
@@ -293,14 +293,14 @@ def project_client(c: MasterClient, bank: str) -> dict:
     seed_val = (hash((c.master_client_id, bank)) & 0xFFFFFFFF)
     rng = random.Random(seed_val)
     name = _mutate_name(c, bank, rng)
-    domains = _UBS_EMAIL if bank == "ubs" else _CS_EMAIL
+    domains = _APEX_EMAIL if bank == "apex" else _SUMMIT_EMAIL
     local = c.email.split("@")[0]
     if rng.random() < 0.4:
         local = local + str(rng.randint(1, 99))
     email = f"{local}@{rng.choice(domains)}"
     # vary domicile spelling between banks
     dom = c.domicile_country
-    if bank == "credit_suisse":
+    if bank == "summit":
         dom = {"Switzerland": "CH", "United Kingdom": "UK", "United States": "USA",
                "Hong Kong": "HK"}.get(dom, dom)
     ccy = {"Switzerland": "CHF", "CH": "CHF", "United Kingdom": "GBP", "UK": "GBP",

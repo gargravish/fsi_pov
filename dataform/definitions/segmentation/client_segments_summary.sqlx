@@ -1,6 +1,6 @@
 config {
   type: "table",
-  schema: "UBS_POV",
+  schema: "FSI_POV",
   name: "client_segments_summary",
   description: "Per-segment size, avg AuM, dominant asset class and attrition index. (Segment NAMES are added by the Data Scientist agent's Gemini step in infra/build_segments.py — Dataform materialises the structured stats; the LLM naming runs as the agent post-step.)",
   tags: ["segmentation"]

@@ -9,7 +9,7 @@ const NAMES = ["Hans Müller", "Marie Dubois", "Luca Rossi", "Sophie Favre",
 const SEG = ["Affluent", "HNW", "UHNW", "Family Office", "Institutional"];
 const CENTRES = ["Zurich", "Geneva", "London", "New York", "Hong Kong", "Singapore"];
 
-const BANKS = ["credit_suisse|ubs", "ubs", "credit_suisse"];
+const BANKS = ["summit|apex", "apex", "summit"];
 export const mockClients: ClientHit[] = NAMES.map((n, i) => ({
   client_id: `CLI_${String(i).padStart(7, "0")}`,
   full_name: n,
@@ -26,24 +26,24 @@ export const mock = {
     advisors: 900, nna_ytd_usd_m: 18420, er_accuracy: 96.4, cross_sell_opportunity: 31304,
   }),
   sources: (): Source[] => [
-    { bank: "UBS", entity: "Client master", format: "CSV", rows: 24321, status: "mapped" },
-    { bank: "UBS", entity: "Portfolios", format: "FIXED_WIDTH", rows: 36459, status: "mapped" },
-    { bank: "UBS", entity: "Positions", format: "PARQUET", rows: 243447, status: "mapped" },
-    { bank: "UBS", entity: "Advisors", format: "XLSX", rows: 416, status: "mapped" },
-    { bank: "Credit Suisse", entity: "Client master", format: "JSON", rows: 24375, status: "mapped" },
-    { bank: "Credit Suisse", entity: "Accounts", format: "XML", rows: 48781, status: "mapped" },
-    { bank: "Credit Suisse", entity: "Transactions", format: "NDJSON", rows: 281135, status: "mapped" },
+    { bank: "Apex Bank", entity: "Client master", format: "CSV", rows: 24321, status: "mapped" },
+    { bank: "Apex Bank", entity: "Portfolios", format: "FIXED_WIDTH", rows: 36459, status: "mapped" },
+    { bank: "Apex Bank", entity: "Positions", format: "PARQUET", rows: 243447, status: "mapped" },
+    { bank: "Apex Bank", entity: "Advisors", format: "XLSX", rows: 416, status: "mapped" },
+    { bank: "Summit Bank", entity: "Client master", format: "JSON", rows: 24375, status: "mapped" },
+    { bank: "Summit Bank", entity: "Accounts", format: "XML", rows: 48781, status: "mapped" },
+    { bank: "Summit Bank", entity: "Transactions", format: "NDJSON", rows: 281135, status: "mapped" },
   ],
   unify: (): UnifyResult => ({
     mapped_fields: 142, dual_banked_clusters: 8696, accuracy: 96.4,
     before: {
-      _source: "credit_suisse / cs_clients.json", cifNumber: "CS000128844",
+      _source: "summit / summit_clients.json", cifNumber: "Summit000128844",
       client: { displayName: "MÜLLER, H.", clientSegment: "UHNW", dateOfBirth: "1968-04-12" },
       address: { country: "CH" }, booking: { baseCcy: "CHF" },
     },
     after: {
       client_id: "CLI_0001288", full_name: "Hans Müller", segment_tier: "UHNW",
-      domicile: "Switzerland", source_banks: ["credit_suisse", "ubs"], dual_banked: true,
+      domicile: "Switzerland", source_banks: ["summit", "apex"], dual_banked: true,
       total_aum_usd: 134200000,
     },
   }),
@@ -84,12 +84,12 @@ export const mock = {
         rationale: "Behaviourally similar clients increasingly hold sustainable mandates." },
     ],
     cross_platform: {
-      home_platform: "UBS", other_platform: "Credit Suisse",
+      home_platform: "Apex Bank", other_platform: "Summit Bank",
       recommendations: [
-        { product: "Capital Protection Structured Solutions", product_type: "structured", origin_platform: "Credit Suisse",
-          rationale: "A Credit Suisse-originated structured solution, now available post-integration, offering defined downside protection suited to this client's risk profile." },
-        { product: "Lombard Credit Facility", product_type: "lombard", origin_platform: "Credit Suisse",
-          rationale: "Securities-backed lending — a Credit Suisse strength now on the unified shelf — can unlock liquidity without liquidating the portfolio." },
+        { product: "Capital Protection Structured Solutions", product_type: "structured", origin_platform: "Summit Bank",
+          rationale: "A Summit Bank-originated structured solution, now available post-integration, offering defined downside protection suited to this client's risk profile." },
+        { product: "Lombard Credit Facility", product_type: "lombard", origin_platform: "Summit Bank",
+          rationale: "Securities-backed lending — a Summit Bank strength now on the unified shelf — can unlock liquidity without liquidating the portfolio." },
       ],
     },
   }),
@@ -98,7 +98,7 @@ export const mock = {
     const first = c.full_name.split(" ")[0];
     return {
       product, client: c.full_name,
-      note: `Dear ${first},\n\nAs we bring your UBS and Credit Suisse relationships together, I've been reviewing your portfolio and believe the ${product} could be a strong fit for your objectives. Several members of your household already benefit from it. I'd welcome a brief call to walk through how it works and share our latest CIO views — no obligation.\n\nWarm regards,\nYour UBS advisor`,
+      note: `Dear ${first},\n\nAs we bring your Apex Bank and Summit Bank relationships together, I've been reviewing your portfolio and believe the ${product} could be a strong fit for your objectives. Several members of your household already benefit from it. I'd welcome a brief call to walk through how it works and share our latest CIO views — no obligation.\n\nWarm regards,\nYour Apex advisor`,
     };
   },
   retentionPipeline: () =>
@@ -111,14 +111,14 @@ export const mock = {
     [...mockClients].sort((a, b) => Number(b.dual_banked) - Number(a.dual_banked)).slice(0, 12).map((c, i) => ({
       client_id: c.client_id, full_name: c.full_name, segment_tier: c.segment_tier,
       flight_risk: Math.max(0.2, 0.93 - i * 0.05),
-      drivers: c.dual_banked ? ["Dual-banked (UBS + CS)", "Recent net outflows"] : ["Fee sensitivity", "KYC review pending"],
+      drivers: c.dual_banked ? ["Dual-banked (Apex + Summit)", "Recent net outflows"] : ["Fee sensitivity", "KYC review pending"],
       play: `Relationship review + tailored mandate proposal for ${c.full_name}; offer a CIO portfolio health-check and discuss consolidated pricing.`,
       source_banks: c.source_banks, dual_banked: c.dual_banked,
     })),
   retentionCampaign: (clientId: string): any => {
     const c = mockClients.find((x) => x.client_id === clientId) ?? mockClients[2];
     const dual = c.total_aum_usd > 5e7;
-    const drivers = dual ? ["Dual-banked (UBS + Credit Suisse)", "Net outflows over the last 6 months"] : ["Fee sensitivity", "Reduced transaction velocity"];
+    const drivers = dual ? ["Dual-banked (Apex Bank + Summit Bank)", "Net outflows over the last 6 months"] : ["Fee sensitivity", "Reduced transaction velocity"];
     return {
       client: { client_id: c.client_id, full_name: c.full_name, segment_tier: c.segment_tier, region: (c as any).region ?? "Switzerland", booking_centre: c.booking_centre, risk_profile: "Balanced", total_aum_usd: c.total_aum_usd, tenure_days: 3650, dual_banked: dual },
       flight_risk: 0.82, drivers,
@@ -133,13 +133,13 @@ export const mock = {
         next_best_action: "Introduce a discretionary mandate (held by household members) to capture idle cash.",
         preferred_channel: "Senior advisor call, followed by an in-person review",
         talking_points: [
-          "Acknowledge the Credit Suisse integration and reassure on continuity of service",
+          "Acknowledge the Summit Bank integration and reassure on continuity of service",
           "18% idle cash could be deployed into a discretionary mandate",
           "Household members already hold discretionary & alternatives — offer parity",
           "Consolidated pricing to address fee sensitivity",
         ],
-        email_subject: "Bringing your UBS & Credit Suisse relationships together — a portfolio review",
-        email_body: `Dear ${c.full_name.split(" ")[0]},\n\nAs we complete the integration of UBS and Credit Suisse, I wanted to reach out personally to ensure your portfolio is working as hard as it can for you. I've noticed a meaningful cash balance we could put to work, and several solutions your wider household already benefits from that may suit your objectives. I'd welcome a short call to share our latest CIO views and a consolidated view of your relationships.\n\nWarm regards,\nR. Brunner, UBS`,
+        email_subject: "Bringing your Apex Bank & Summit Bank relationships together — a portfolio review",
+        email_body: `Dear ${c.full_name.split(" ")[0]},\n\nAs we complete the integration of Apex Bank and Summit Bank, I wanted to reach out personally to ensure your portfolio is working as hard as it can for you. I've noticed a meaningful cash balance we could put to work, and several solutions your wider household already benefits from that may suit your objectives. I'd welcome a short call to share our latest CIO views and a consolidated view of your relationships.\n\nWarm regards,\nR. Brunner, Apex Bank`,
       },
     };
   },
@@ -160,14 +160,14 @@ export const mock = {
       commentary: `${metric.toUpperCase()} is projected to grow steadily over the next 12 months, with momentum strongest in APAC and GWM — consistent with the $200bn net-new-money ambition. Confidence bands widen beyond month six.` };
   },
   research: (q: string): DocHit[] => [
-    { document_id: "DOC_000012", title: "UBS CIO Research — Private credit allocation for UHNW portfolios", doc_type: "cio_research", snippet: "Our CIO view favours a structural allocation to private credit for qualified UHNW and family-office clients, citing attractive risk-adjusted yields…", score: 0.92, gcs_uri: "gs://ubs_pov/raw/documents/DOC_000012.pdf" },
-    { document_id: "DOC_000044", title: "UBS CIO Research — Global asset allocation: balanced positioning into 2026", doc_type: "cio_research", snippet: "Our balanced multi-asset stance holds a modest overweight to global equities funded from cash, neutral duration in high-grade bonds…", score: 0.85, gcs_uri: "gs://ubs_pov/raw/documents/DOC_000044.pdf" },
-    { document_id: "DOC_000133", title: "UBS CIO Research — APAC wealth: capturing the next decade", doc_type: "cio_research", snippet: "Asia-Pacific remains the fastest-growing wealth pool. We highlight onshore and offshore booking considerations and currency hedging…", score: 0.78, gcs_uri: "gs://ubs_pov/raw/documents/DOC_000133.pdf" },
+    { document_id: "DOC_000012", title: "Apex CIO Research — Private credit allocation for UHNW portfolios", doc_type: "cio_research", snippet: "Our CIO view favours a structural allocation to private credit for qualified UHNW and family-office clients, citing attractive risk-adjusted yields…", score: 0.92, gcs_uri: "gs://fsi_pov/raw/documents/DOC_000012.pdf" },
+    { document_id: "DOC_000044", title: "Apex CIO Research — Global asset allocation: balanced positioning into 2026", doc_type: "cio_research", snippet: "Our balanced multi-asset stance holds a modest overweight to global equities funded from cash, neutral duration in high-grade bonds…", score: 0.85, gcs_uri: "gs://fsi_pov/raw/documents/DOC_000044.pdf" },
+    { document_id: "DOC_000133", title: "Apex CIO Research — APAC wealth: capturing the next decade", doc_type: "cio_research", snippet: "Asia-Pacific remains the fastest-growing wealth pool. We highlight onshore and offshore booking considerations and currency hedging…", score: 0.78, gcs_uri: "gs://fsi_pov/raw/documents/DOC_000133.pdf" },
   ],
   researchAnswer: (q: string) => ({
     answer: "Per the latest CIO research, a 5–12% allocation to private credit is recommended for qualified UHNW and family-office clients, funded from public high yield and phased over 12–18 months via diversified direct-lending and secondaries vehicles [DOC_000012]. Liquidity terms and J-curve management are key considerations.",
     citations: [
-      { document_id: "DOC_000012", title: "Private credit allocation for UHNW portfolios", gcs_uri: "gs://ubs_pov/raw/documents/DOC_000012.pdf" },
+      { document_id: "DOC_000012", title: "Private credit allocation for UHNW portfolios", gcs_uri: "gs://fsi_pov/raw/documents/DOC_000012.pdf" },
     ],
   }),
   segments: (): Segment[] => [
@@ -201,12 +201,12 @@ export const mock = {
     { type: "table", columns: ["booking_centre", "nna_usd_m", "qoq_growth_pct"],
       rows: [["Hong Kong", 2140, 11.4], ["Singapore", 1890, 9.8], ["Zurich", 3120, 4.1], ["Geneva", 1640, 3.7], ["New York", 1430, 5.2], ["London", 1210, 2.9]] },
     { type: "chart", spec: { mark: "bar", x: "booking_centre", y: "nna_usd_m" } },
-    { type: "sql", sql: "SELECT booking_centre, ROUND(SUM(net_new_money_usd)/1e6,1) AS nna_usd_m\nFROM `raves-altostrat.UBS_POV.client_flows` f\nJOIN `raves-altostrat.UBS_POV.clients` c USING (client_id)\nWHERE f.month >= '2026-01-01'\nGROUP BY booking_centre ORDER BY nna_usd_m DESC" },
+    { type: "sql", sql: "SELECT booking_centre, ROUND(SUM(net_new_money_usd)/1e6,1) AS nna_usd_m\nFROM `raves-altostrat.FSI_POV.client_flows` f\nJOIN `raves-altostrat.FSI_POV.clients` c USING (client_id)\nWHERE f.month >= '2026-01-01'\nGROUP BY booking_centre ORDER BY nna_usd_m DESC" },
   ],
   agentLifecycle: (goal: string): any[] => {
     const g = goal.toLowerCase();
-    const dfUrl = "https://console.cloud.google.com/bigquery/dataform/locations/us-central1/repositories/ubs_pov_pipeline/workspaces/dev?project=raves-altostrat";
-    const bq = (table: string, kind = "table") => ({ label: table, ref: `raves-altostrat.UBS_POV.${table}`, kind, url: `https://console.cloud.google.com/bigquery?project=raves-altostrat&ws=!1m5!1m4!4m3!1sraves-altostrat!2sUBS_POV!3s${table}` });
+    const dfUrl = "https://console.cloud.google.com/bigquery/dataform/locations/us-central1/repositories/fsi_pov_pipeline/workspaces/dev?project=raves-altostrat";
+    const bq = (table: string, kind = "table") => ({ label: table, ref: `raves-altostrat.FSI_POV.${table}`, kind, url: `https://console.cloud.google.com/bigquery?project=raves-altostrat&ws=!1m5!1m4!4m3!1sraves-altostrat!2sFSI_POV!3s${table}` });
     let ds: any, caq: string, caBlocks: any[];
     if (/(lose|attrition|churn|flight|retain|outflow)/.test(g)) {
       ds = { kind: "retention", scores: mock.retentionScores().slice(0, 8), headline: "Scored every client with the BQML attrition model; flagged the highest flight-risk cohort.", artifacts: [bq("attrition_model", "model"), bq("attrition_scores")] };
@@ -249,28 +249,28 @@ export const mock = {
   },
   rawOverview: () => ({
     sources: [
-      { name: "UBS — raw clients (CSV)", rows: 24321 },
-      { name: "Credit Suisse — raw clients (JSON)", rows: 24375 },
+      { name: "Apex Bank — raw clients (CSV)", rows: 24321 },
+      { name: "Summit Bank — raw clients (JSON)", rows: 24375 },
       { name: "Resolved Client 360", rows: 40000 },
     ],
     dual_banked: 8696,
     sample: [
-      { client_id: "CLI_0001288", full_name: "Hans Müller", segment_tier: "UHNW", source_banks: "credit_suisse|ubs", dual_banked: true },
-      { client_id: "CLI_0009934", full_name: "Wei Chen", segment_tier: "UHNW", source_banks: "credit_suisse|ubs", dual_banked: true },
-      { client_id: "CLI_0004102", full_name: "Sophie Favre", segment_tier: "Family Office", source_banks: "ubs", dual_banked: false },
+      { client_id: "CLI_0001288", full_name: "Hans Müller", segment_tier: "UHNW", source_banks: "summit|apex", dual_banked: true },
+      { client_id: "CLI_0009934", full_name: "Wei Chen", segment_tier: "UHNW", source_banks: "summit|apex", dual_banked: true },
+      { client_id: "CLI_0004102", full_name: "Sophie Favre", segment_tier: "Family Office", source_banks: "apex", dual_banked: false },
     ],
   }),
   agentSteps: (goal: string): AgentStep[] => {
     const g = goal.toLowerCase();
     const bq = (table: string, kind = "table") => ({
-      label: table, ref: `raves-altostrat.UBS_POV.${table}`, kind,
-      url: `https://console.cloud.google.com/bigquery?project=raves-altostrat&ws=!1m5!1m4!4m3!1sraves-altostrat!2sUBS_POV!3s${table}`,
+      label: table, ref: `raves-altostrat.FSI_POV.${table}`, kind,
+      url: `https://console.cloud.google.com/bigquery?project=raves-altostrat&ws=!1m5!1m4!4m3!1sraves-altostrat!2sFSI_POV!3s${table}`,
     });
-    const dataform = { label: "Dataform workspace (Data Engineering Agent)", ref: "ubs_pov_pipeline/dev", kind: "dataform", url: "https://console.cloud.google.com/bigquery/dataform/locations/us-central1/repositories/ubs_pov_pipeline/workspaces/dev?project=raves-altostrat" };
+    const dataform = { label: "Dataform workspace (Data Engineering Agent)", ref: "fsi_pov_pipeline/dev", kind: "dataform", url: "https://console.cloud.google.com/bigquery/dataform/locations/us-central1/repositories/fsi_pov_pipeline/workspaces/dev?project=raves-altostrat" };
     if (/(segment|cluster|persona|group)/.test(g))
       return [
         { type: "step", agent: "orchestrator", skill: "route_goal", detail: "Decomposed goal and selected the 'segments' workflow.", tool_calls: ["ADK: classify_intent"], a2a: "→ data_engineering, data_scientist" },
-        { type: "step", agent: "data_engineering", skill: "build_feature_table", real: true, detail: "The table client_features is built from the following source tables: accounts, clients, holdings, transactions.", tool_calls: ["A2A → geminidataanalytics: dataengineeringagent", "Dataform workspace ubs_pov_pipeline/dev"], a2a: "LIVE A2A · Google Data Engineering Agent" },
+        { type: "step", agent: "data_engineering", skill: "build_feature_table", real: true, detail: "The table client_features is built from the following source tables: accounts, clients, holdings, transactions.", tool_calls: ["A2A → geminidataanalytics: dataengineeringagent", "Dataform workspace fsi_pov_pipeline/dev"], a2a: "LIVE A2A · Google Data Engineering Agent" },
         { type: "step", agent: "data_scientist", skill: "segment_clients", detail: "Trained BQML KMEANS (BigFrames engine), assigned every client a segment, named clusters with Gemini.", tool_calls: ["CREATE MODEL client_kmeans (KMEANS)", "ML.PREDICT", "Gemini: name_segments"] },
         { type: "step", agent: "orchestrator", skill: "compose_answer", detail: "Aggregated specialist results.", tool_calls: ["ADK: compose"], a2a: "← data_engineering, data_scientist" },
         { type: "final", result: { type: "segments", segments: mock.segments(), artifacts: [bq("client_kmeans", "model"), bq("client_features"), bq("client_segments"), bq("client_segments_summary"), dataform] } },

@@ -21,7 +21,7 @@ _ISIN_COUNTRIES = ["CH", "US", "DE", "GB", "FR", "LU", "JP", "HK", "SG"]
 _EQUITY_NAMES = [
     "Nestle SA", "Novartis AG", "Roche Holding", "Apple Inc", "Microsoft Corp",
     "Alphabet Inc", "ASML Holding", "LVMH", "Nvidia Corp", "TSMC ADR",
-    "Tencent Holdings", "Samsung Electronics", "Zurich Insurance", "UBS Group AG",
+    "Tencent Holdings", "Samsung Electronics", "Zurich Insurance", "Apex Group AG",
     "Richemont", "Siemens AG", "Shell plc", "AstraZeneca", "HSBC Holdings",
 ]
 _FUND_NAMES = [
@@ -106,12 +106,12 @@ class Product:
     name: str
     description: str
     target_segment_hint: str
-    origin_platform: str   # "UBS" | "Credit Suisse" — for post-integration cross-platform offers
+    origin_platform: str   # "Apex Bank" | "Summit Bank" — for post-integration cross-platform offers
 
 
 _PRODUCTS_RAW = [
-    ("discretionary", "UBS Manage Advanced Discretionary Mandate",
-     "Fully delegated discretionary portfolio management where UBS investment "
+    ("discretionary", "Apex Manage Advanced Discretionary Mandate",
+     "Fully delegated discretionary portfolio management where Apex Bank investment "
      "professionals implement CIO house views across global equities, fixed income "
      "and alternatives, with active risk management and tax-aware rebalancing.",
      "HNW"),
@@ -119,7 +119,7 @@ _PRODUCTS_RAW = [
      "Discretionary mandate built around ESG and impact objectives, screening and "
      "tilting toward sustainable leaders while tracking a global multi-asset benchmark.",
      "HNW"),
-    ("advisory", "UBS Advice Premium Advisory Mandate",
+    ("advisory", "Apex Advice Premium Advisory Mandate",
      "Advisory mandate giving clients proactive, CIO-led investment ideas and "
      "portfolio health checks while retaining full decision control over each trade.",
      "Affluent"),
@@ -136,7 +136,7 @@ _PRODUCTS_RAW = [
      "estate and infrastructure funds for qualified UHNW and family-office clients.",
      "UHNW"),
     ("alternative", "Family Office Co-Investment Platform",
-     "Direct and co-investment opportunities alongside UBS and partner family offices "
+     "Direct and co-investment opportunities alongside Apex Bank and partner family offices "
      "across late-stage venture, buyout and real assets.",
      "Family Office"),
     ("structured", "Capital Protection Structured Solutions",
@@ -144,7 +144,7 @@ _PRODUCTS_RAW = [
      "or rate-linked upside, customised to client market views and tenor.",
      "HNW"),
     ("fund", "Global Multi-Asset Fund Range",
-     "Open-architecture fund selection spanning UBS and third-party active and index "
+     "Open-architecture fund selection spanning Apex Bank and third-party active and index "
      "strategies across equities, bonds, commodities and thematic baskets.",
      "Affluent"),
     ("advisory", "Wealth Planning & Succession Advisory",
@@ -154,14 +154,14 @@ _PRODUCTS_RAW = [
 ]
 
 
-# Products originated on the Credit Suisse side of the merged shelf (by index in
+# Products originated on the Summit Bank side of the merged shelf (by index in
 # _PRODUCTS_RAW): Lombard, Private Markets, Family Office Co-Investment, Structured.
-_CS_PRODUCT_IDX = {3, 5, 6, 7}
+_Summit_PRODUCT_IDX = {3, 5, 6, 7}
 
 
 def products() -> list[Product]:
     out = []
     for i, (ptype, name, desc, hint) in enumerate(_PRODUCTS_RAW):
-        origin = "Credit Suisse" if i in _CS_PRODUCT_IDX else "UBS"
+        origin = "Summit Bank" if i in _Summit_PRODUCT_IDX else "Apex Bank"
         out.append(Product(f"PRD_{i:03d}", ptype, name, desc, hint, origin))
     return out

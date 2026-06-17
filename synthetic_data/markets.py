@@ -1,7 +1,7 @@
 """
 markets.py — Clean analytic time-series marts for AI.FORECAST / TimesFM:
 ts_aum_monthly, ts_nna_monthly, ts_revenue_monthly by division x region, with
-trend + seasonality + realistic shocks (2022 drawdown, 2023 CS-deal NNA dip,
+trend + seasonality + realistic shocks (2022 drawdown, 2023 Summit-deal NNA dip,
 2024-26 recovery & NNA ramp). >=48 monthly points per series.
 """
 from __future__ import annotations
@@ -33,7 +33,7 @@ def _shock(t: int) -> float:
     """Multiplicative shock by month index from 2022-01."""
     # 2022 market drawdown (months 0-11), trough ~ month 9
     drop = -0.10 * math.exp(-((t - 9) ** 2) / 30.0) if t < 14 else 0.0
-    # 2023 CS-acquisition NNA wobble (months 14-22)
+    # 2023 Summit-acquisition NNA wobble (months 14-22)
     wobble = -0.06 * math.exp(-((t - 17) ** 2) / 20.0) if 12 <= t <= 26 else 0.0
     # 2024-26 recovery ramp
     recovery = 0.08 * (1 / (1 + math.exp(-(t - 30) / 6.0)))

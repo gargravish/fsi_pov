@@ -1,5 +1,5 @@
 """
-UBS legacy portfolio extract — fixed-width mainframe format (no headers),
+Apex Bank legacy portfolio extract — fixed-width mainframe format (no headers),
 YYYYMMDD dates, mandate codes (not labels), CHF amounts. BigQuery cannot read
 fixed-width natively: the loader parses this into JSON; the original stays in GCS
 for the "AI parses the messy mainframe extract" story.
@@ -25,14 +25,14 @@ _BENCH = ["MSCIWORLD", "SMI_______", "G60_40____", "BBGAGG____", "UHNWCUST__"]
 
 
 def write(clients_m, out_dir: str) -> dict:
-    path = os.path.join(out_dir, "ubs_portfolios.txt")
+    path = os.path.join(out_dir, "apex_portfolios.txt")
     rng = random.Random(MASTER_SEED ^ 0x501)
     n = 0
     with open(path, "w", encoding="utf-8") as f:
         for i, c in enumerate(clients_m):
-            if "ubs" not in c.in_banks:
+            if "apex" not in c.in_banks:
                 continue
-            p = project_client(c, "ubs")
+            p = project_client(c, "apex")
             for _ in range(rng.randint(1, 2)):
                 code = rng.choice(list(_MANDATE_CODES.values()))
                 bench = rng.choice(_BENCH)
@@ -40,7 +40,7 @@ def write(clients_m, out_dir: str) -> dict:
                 year = rng.randint(2002, 2025)
                 eroeff = f"{year}{rng.randint(1,12):02d}{rng.randint(1,28):02d}"
                 line = (
-                    f"U{i:08d}"
+                    f"A{i:08d}"
                     f"{code:<4}"
                     f"{bench:<10}"
                     f"{p['primary_ccy']:<3}"

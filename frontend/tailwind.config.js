@@ -8,7 +8,7 @@ export default {
         panel: "#0f1729",
         panel2: "#131d33",
         edge: "#1e2a45",
-        accent: "#e60028", // UBS red
+        accent: "#e60028", // Apex Bank red
         accent2: "#38bdf8",
         muted: "#8aa0c0",
       },

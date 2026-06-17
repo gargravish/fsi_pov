@@ -1,5 +1,5 @@
 """
-load_raw_bq.py — Load generated data into BigQuery dataset UBS_POV.
+load_raw_bq.py — Load generated data into BigQuery dataset FSI_POV.
 
 Loads the clean CURATED canonical tables (the "unified result"), the time-series
 marts, the per-client flows, the attrition feature/scoring tables, and the
@@ -105,12 +105,12 @@ def load_all() -> None:
 def _register_raw_external(client) -> None:
     ds = f"{GOOGLE_CLOUD_PROJECT}.{BQ_DATASET}"
     specs = {
-        "raw_ubs_clients":      ("CSV", f"gs://{GCS_BUCKET}/raw/ubs/ubs_clients.csv"),
-        "raw_ubs_positions":    ("PARQUET", f"gs://{GCS_BUCKET}/raw/ubs/ubs_positions.parquet"),
-        "raw_cs_clients":       ("NEWLINE_DELIMITED_JSON",
-                                 f"gs://{GCS_BUCKET}/raw/credit_suisse/cs_clients.json"),
-        "raw_cs_transactions":  ("NEWLINE_DELIMITED_JSON",
-                                 f"gs://{GCS_BUCKET}/raw/credit_suisse/cs_transactions.ndjson"),
+        "raw_apex_clients":      ("CSV", f"gs://{GCS_BUCKET}/raw/apex/apex_clients.csv"),
+        "raw_apex_positions":    ("PARQUET", f"gs://{GCS_BUCKET}/raw/apex/apex_positions.parquet"),
+        "raw_summit_clients":       ("NEWLINE_DELIMITED_JSON",
+                                 f"gs://{GCS_BUCKET}/raw/summit/summit_clients.json"),
+        "raw_summit_transactions":  ("NEWLINE_DELIMITED_JSON",
+                                 f"gs://{GCS_BUCKET}/raw/summit/summit_transactions.ndjson"),
     }
     for name, (fmt, uri) in specs.items():
         extra = ""

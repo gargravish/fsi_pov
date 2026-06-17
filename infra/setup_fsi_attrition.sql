@@ -1,6 +1,6 @@
 -- =====================================================================
--- UBS Helix — Client attrition / NNA flight-risk model + scoring + drivers
--- Project: raves-altostrat   Dataset: UBS_POV
+-- FSI Helix — Client attrition / NNA flight-risk model + scoring + drivers
+-- Project: raves-altostrat   Dataset: FSI_POV
 --
 -- Headline capability: TabularFM (zero-tuning tabular foundation model).
 -- Executed default: BOOSTED_TREE_CLASSIFIER (GA, fast, identical scoring
@@ -8,13 +8,13 @@
 -- swap the model_type in section 1 (see the commented variant).
 --
 --   bq --project_id=raves-altostrat --location=us-central1 query \
---      --use_legacy_sql=false < infra/setup_ubs_attrition.sql
+--      --use_legacy_sql=false < infra/setup_apex_attrition.sql
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
 -- 1) Train the attrition classifier on the engineered feature table
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE MODEL `raves-altostrat.UBS_POV.attrition_model`
+CREATE OR REPLACE MODEL `raves-altostrat.FSI_POV.attrition_model`
 OPTIONS (
   model_type = 'BOOSTED_TREE_CLASSIFIER',
   input_label_cols = ['attrited'],
@@ -31,25 +31,25 @@ SELECT
   tenure_days, total_aum_usd, n_accounts, n_txns,
   kyc_flag, recent_net_flow_usd, outflow_ratio,
   attrited
-FROM `raves-altostrat.UBS_POV.attrition_training`;
+FROM `raves-altostrat.FSI_POV.attrition_training`;
 
 -- TabularFM headline variant (Preview; uncomment where enabled):
--- CREATE OR REPLACE MODEL `raves-altostrat.UBS_POV.attrition_model`
+-- CREATE OR REPLACE MODEL `raves-altostrat.FSI_POV.attrition_model`
 -- OPTIONS (model_type = 'TABULARFM', input_label_cols = ['attrited']) AS
--- SELECT * FROM `raves-altostrat.UBS_POV.attrition_training`;
+-- SELECT * FROM `raves-altostrat.FSI_POV.attrition_training`;
 
 -- ---------------------------------------------------------------------
 -- 2) Score every client (flight-risk probability)
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE TABLE `raves-altostrat.UBS_POV.attrition_scores` AS
+CREATE OR REPLACE TABLE `raves-altostrat.FSI_POV.attrition_scores` AS
 SELECT
   s.client_id,
   s.segment_tier, s.region, s.total_aum_usd, s.dual_banked,
   s.recent_net_flow_usd, s.outflow_ratio,
   p.prob AS flight_risk
 FROM ML.PREDICT(
-  MODEL `raves-altostrat.UBS_POV.attrition_model`,
-  TABLE `raves-altostrat.UBS_POV.attrition_scoring`
+  MODEL `raves-altostrat.FSI_POV.attrition_model`,
+  TABLE `raves-altostrat.FSI_POV.attrition_scoring`
 ) AS s,
 UNNEST(s.predicted_attrited_probs) AS p
 WHERE p.label = 1;
@@ -57,16 +57,16 @@ WHERE p.label = 1;
 -- ---------------------------------------------------------------------
 -- 3) Global feature importance (top attrition drivers) for the UI
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE TABLE `raves-altostrat.UBS_POV.attrition_drivers` AS
+CREATE OR REPLACE TABLE `raves-altostrat.FSI_POV.attrition_drivers` AS
 SELECT feature, importance_weight AS importance
-FROM ML.FEATURE_IMPORTANCE(MODEL `raves-altostrat.UBS_POV.attrition_model`)
+FROM ML.FEATURE_IMPORTANCE(MODEL `raves-altostrat.FSI_POV.attrition_model`)
 ORDER BY importance DESC;
 
 -- ---------------------------------------------------------------------
 -- 4) Renewal/outflow pipeline (next 12 weeks) for the Retention page
 --    Buckets high-risk clients into a forward-looking review pipeline.
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE TABLE `raves-altostrat.UBS_POV.retention_pipeline` AS
+CREATE OR REPLACE TABLE `raves-altostrat.FSI_POV.retention_pipeline` AS
 SELECT
   week,
   COUNT(*) AS clients,
@@ -75,7 +75,7 @@ FROM (
   SELECT client_id, flight_risk,
          DATE_ADD(DATE '2026-06-01',
                   INTERVAL CAST(FLOOR(RAND() * 12) AS INT64) WEEK) AS week
-  FROM `raves-altostrat.UBS_POV.attrition_scores`
+  FROM `raves-altostrat.FSI_POV.attrition_scores`
 )
 GROUP BY week
 ORDER BY week;

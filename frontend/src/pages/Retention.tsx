@@ -50,7 +50,7 @@ export default function Retention() {
             return (
               <p className="text-xs text-muted mb-3">
                 <span className="text-accent2 font-semibold">{pct}%</span> of the top {scores.length} are{" "}
-                <span className="text-white">dual-banked (UBS + Credit Suisse)</span> — the integration is the
+                <span className="text-white">dual-banked (Apex + Summit)</span> — the integration is the
                 #1 flight-risk driver. Single-bank clients are lower risk but a growth opportunity (see Next-Best-Action).
               </p>
             );

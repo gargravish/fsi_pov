@@ -1,5 +1,5 @@
 """
-orchestrator.py — The agentic core of UBS Helix.
+orchestrator.py — The agentic core of FSI Helix.
 
 An ADK-style Orchestrator decomposes a free-form business goal across two
 specialist agents that collaborate over the Agent-to-Agent (A2A) protocol:
@@ -42,7 +42,7 @@ def _artifact(label: str, table: str, kind: str = "table") -> dict:
 # ---------------------------------------------------------------------------
 AGENT_CARDS = {
     "orchestrator": {
-        "name": "UBS Helix Orchestrator", "framework": "Google ADK",
+        "name": "FSI Helix Orchestrator", "framework": "Google ADK",
         "skills": ["route_goal", "compose_answer"]},
     "data_engineering": {
         "name": "Data Engineering Agent", "framework": "ADK + A2A",
@@ -75,7 +75,7 @@ _DE_PROMPTS = {
                 "and confirm the pipeline dependencies. Do not modify files.",
     "nba": "List the curated client and account tables in this workspace that back the "
            "next-best-action graph. Do not modify files.",
-    "unify": "List the raw two-bank sources (raw_ubs_clients, raw_cs_clients) and the resolved "
+    "unify": "List the raw two-bank sources (raw_apex_clients, raw_summit_clients) and the resolved "
              "clients table declared in this workspace. Do not modify files.",
 }
 
@@ -95,7 +95,7 @@ async def _delegate_to_de(plan: str, skill: str) -> list[Step]:
         for m in msgs:
             out.append(Step("data_engineering", skill, m,
                             ["A2A → geminidataanalytics: dataengineeringagent",
-                             "Dataform workspace ubs_pov_pipeline/dev"],
+                             "Dataform workspace fsi_pov_pipeline/dev"],
                             a2a="LIVE A2A · Google Data Engineering Agent", real=True))
         if not out:
             out = [Step("data_engineering", skill, "Inspected the Dataform workspace lineage.",
@@ -204,8 +204,8 @@ async def run(goal: str):
         for st in await _delegate_to_de("unify", "run_entity_resolution"):
             yield await emit(st)
         result = {"type": "unify", "unify": services.unify_result(), "artifacts": [
-            _artifact("UBS raw clients (CSV)", "raw_ubs_clients"),
-            _artifact("Credit Suisse raw clients (JSON)", "raw_cs_clients"),
+            _artifact("Apex raw clients (CSV)", "raw_apex_clients"),
+            _artifact("Summit raw clients (JSON)", "raw_summit_clients"),
             _artifact("Resolved Client 360", "clients")]}
 
     yield await emit(Step(
@@ -234,7 +234,7 @@ _REGION_SYNONYMS = {
     "Americas": ["americas", "america", "us ", "u.s", "new york", "latam"],
     "Switzerland": ["switzerland", "swiss", "zurich", "geneva", "basel", "lugano"],
 }
-_METRICS = {"nna": ["net new money", "nna", "net-new", "inflow", "new money"],
+_METRISummit = {"nna": ["net new money", "nna", "net-new", "inflow", "new money"],
             "aum": ["aum", "assets under management", "asset"],
             "revenue": ["revenue", "fees", "income"]}
 _METRIC_LABEL = {"nna": "net new money", "aum": "assets under management", "revenue": "revenue"}
@@ -243,7 +243,7 @@ _METRIC_LABEL = {"nna": "net new money", "aum": "assets under management", "reve
 def _parse_goal(goal: str) -> dict:
     g = goal.lower()
     region = next((r for r, kws in _REGION_SYNONYMS.items() if any(k in g for k in kws)), "all")
-    metric = next((m for m, kws in _METRICS.items() if any(k in g for k in kws)), "nna")
+    metric = next((m for m, kws in _METRISummit.items() if any(k in g for k in kws)), "nna")
     return {"region": region, "metric": metric}
 
 
@@ -263,7 +263,7 @@ def _ca_question(plan: str, goal: str) -> str:
         return "What is the average AuM and dual-banked share for each behavioural segment?"
     if plan == "nba":
         return "Which products are most commonly held across households, by booking centre?"
-    return "How many clients originated from each source bank (UBS vs Credit Suisse)?"
+    return "How many clients originated from each source bank (Apex vs Summit)?"
 
 
 def _ds_output(plan: str, goal: str) -> dict:
@@ -301,7 +301,7 @@ def _business_summary(goal: str, plan: str, ds_out: dict, ca_blocks: list) -> st
     try:
         if settings.USE_BQ:
             return bq.gen_text(
-                f"You are briefing a UBS executive. In 2-3 sentences, turn this analysis into a "
+                f"You are briefing a FSI executive. In 2-3 sentences, turn this analysis into a "
                 f"clear business recommendation for the goal: '{goal}'. "
                 f"Data-science headline: {ds_out.get('headline','')}. "
                 f"Conversational-analytics finding: {ca_text[:600]}. "
@@ -428,7 +428,7 @@ async def run_lifecycle(goal: str):
         ds_out = {"kind": "text", "text": f"(model run failed: {e})", "artifacts": []}
     yield ev("ds", "Data Scientist", "done", "BigQuery ML", p_ds, ds_out)
 
-    # 4) CONVERSATIONAL ANALYTICS AGENT (real) — human-in-the-loop ----------
+    # 4) CONVERSATIONAL ANALYTISummit AGENT (real) — human-in-the-loop ----------
     yield ev("ca", "Conversational Analytics Agent", "working", "LIVE · Gemini Data Analytics", _P_CA)
     caq = _ca_question(plan, goal)
 

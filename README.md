@@ -1,8 +1,8 @@
-# UBS Helix
+# FSI Helix
 
 **An agentic wealth-&-banking intelligence demo on the Google Cloud Agentic Data Platform.**
 
-UBS Helix takes the reality of the **UBS + Credit Suisse integration** — two banks, two
+FSI Helix takes the reality of the **Apex Bank + Summit Bank integration** — two banks, two
 of everything, fragmented formats, overlapping clients — and turns it into a unified,
 conversational, agent-driven decision surface. Every screen is powered by a native
 **BigQuery AI** capability: autonomous embeddings, vector search, a client property
@@ -10,7 +10,7 @@ graph, TimesFM forecasting, a TabularFM/BQML attrition model, Conversational Ana
 grounded document RAG — all running *inside* the warehouse.
 
 The agentic layer uses **real Google Cloud data agents**: the **Conversational Analytics
-agent** powers *Ask UBS*, and the genuine **Google Cloud Data Engineering Agent** (an A2A
+agent** powers *Ask Helix*, and the genuine **Google Cloud Data Engineering Agent** (an A2A
 agent operating on a live **Dataform** workspace) is orchestrated alongside a BigQuery‑ML
 **Data Scientist** step — visible end‑to‑end in the *Agent Console* data‑lifecycle view.
 
@@ -21,8 +21,8 @@ It runs in two modes:
 | **Demo** | `USE_BQ=false` / `VITE_USE_MOCKS=true` | Realistic fixtures, zero cloud calls | ❌ No |
 | **Live** | `USE_BQ=true` / `VITE_USE_MOCKS=false` | Real BigQuery AI / Vertex AI / graph / forecasting | ✅ Yes |
 
-> Full design rationale, UBS research and the use-case mapping live in
-> [`UBS_AGENTIC_POV_PLAN.md`](UBS_AGENTIC_POV_PLAN.md). The CxO walk-through is in
+> Full design rationale, Apex Bank research and the use-case mapping live in
+> [`Apex Bank_AGENTIC_POV_PLAN.md`](Apex Bank_AGENTIC_POV_PLAN.md). The CxO walk-through is in
 > [`SPEAKER_PITCH.md`](SPEAKER_PITCH.md).
 
 ---
@@ -32,11 +32,11 @@ It runs in two modes:
 | Page | Business question | BigQuery AI capability |
 |---|---|---|
 | **Home** | What does the unified estate look like? | Federated KPIs across the two-bank estate |
-| **Unify & Resolve** | Can we collapse UBS + CS into one truth? | `AI.GENERATE_TABLE` mapping + autonomous embeddings + `VECTOR_SEARCH` entity resolution |
+| **Unify & Resolve** | Can we collapse Apex + Summit into one truth? | `AI.GENERATE_TABLE` mapping + autonomous embeddings + `VECTOR_SEARCH` entity resolution |
 | **Next-Best-Action** | What should this household hold next? | **Property graph** (GQL `MATCH`) + `VECTOR_SEARCH` look-alikes |
 | **Flight-Risk Sentinel** | Which clients will we lose — and the campaign to save them? | **TabularFM/BQML** attrition → click a client → **GQL** household 360 + holdings/flows → **Gemini** drafts a targeted campaign + ready-to-send email |
 | **Forecast Room** | Where are AuM / NNA / revenue heading? | `AI.FORECAST` (**TimesFM 2.5**) — zero-training, multi-series |
-| **Ask UBS** | Let anyone query the estate in English | **Conversational Analytics agent** (real) — streams thinking → text + table + chart + SQL |
+| **Ask Helix** | Let anyone query the estate in English | **Conversational Analytics agent** (real) — streams thinking → text + table + chart + SQL |
 | **Research Brain** | Answer from CIO / KYC / suitability docs | Autonomous embeddings + `AI.SEARCH` grounded RAG |
 | **Network Guard** | Where is the financial-crime risk? | **Property graph** multi-hop GQL — click a pattern (structuring / UBO / cross-bank) → its subgraph + records |
 | **Segment Studio** | What natural client groups exist? | **BigFrames/BQML** KMeans + `AI.GENERATE` naming |
@@ -47,7 +47,7 @@ It runs in two modes:
 ## Use-case & capability flow
 
 Read it **bottom-up** — the foundation sits at the bottom and value rises to the users at the top:
-two fragmented legacy estates (UBS + Credit Suisse) land in one BigQuery dataset (the data
+two fragmented legacy estates (Apex Bank + Summit Bank) land in one BigQuery dataset (the data
 foundation), a set of **warehouse-native AI capabilities** turn that data into intelligence,
 each capability powers a concrete **business use case**, and everything is consumed through one
 conversational, agent-driven surface. Every box in the blue layer is a BigQuery / Vertex AI
@@ -56,15 +56,15 @@ primitive; there is **no separate vector DB, graph DB, feature store, or model-s
 ```mermaid
 flowchart BT
     %% ---------- Sources (bottom: data foundation) ----------
-    subgraph SRC["🏦 Two legacy estates — the Credit Suisse integration"]
+    subgraph SRC["🏦 Two legacy estates — the Summit Bank integration"]
         direction LR
-        S1["UBS<br/>CSV · fixed-width<br/>Parquet · xlsx"]
-        S2["Credit Suisse<br/>JSON · XML · NDJSON"]
+        S1["Apex Bank<br/>CSV · fixed-width<br/>Parquet · xlsx"]
+        S2["Summit Bank<br/>JSON · XML · NDJSON"]
         S3["Documents (PDF)<br/>CIO research · KYC<br/>suitability · advice"]
     end
 
-    GCS["☁️ GCS bucket<br/>gs://ubs_pov<br/><i>raw fragmented files</i>"]
-    BQ[("🗄️ BigQuery dataset UBS_POV<br/><b>one governed Client 360</b><br/>curated tables · no data movement")]
+    GCS["☁️ GCS bucket<br/>gs://fsi_pov<br/><i>raw fragmented files</i>"]
+    BQ[("🗄️ BigQuery dataset FSI_POV<br/><b>one governed Client 360</b><br/>curated tables · no data movement")]
 
     S1 --> GCS
     S2 --> GCS
@@ -94,7 +94,7 @@ flowchart BT
     %% ---------- Business use cases ----------
     subgraph BIZ["💼 Business use cases"]
         direction LR
-        U1["🏢 <b>Finish the integration</b><br/>UBS + CS → one Client 360"]
+        U1["🏢 <b>Finish the integration</b><br/>Apex + Summit → one Client 360"]
         U2["💰 <b>Grow share-of-wallet</b><br/>next-best-action across the household"]
         U3["🛡️ <b>Protect the asset base</b><br/>predict attrition + draft the save"]
         U4["📈 <b>Plan to $200bn NNA/yr</b><br/>AuM · NNA · revenue forecasting"]
@@ -122,7 +122,7 @@ flowchart BT
     C11 --> U9
 
     %% ---------- Consumption ----------
-    APP["🖥️ UBS Helix app<br/>React + FastAPI · SSE streaming<br/><i>one conversational, agent-driven surface</i>"]
+    APP["🖥️ FSI Helix app<br/>React + FastAPI · SSE streaming<br/><i>one conversational, agent-driven surface</i>"]
     U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9 --> APP
 
     %% ---------- Styling ----------
@@ -140,7 +140,7 @@ flowchart BT
 ```
 
 > **Read it bottom-up:** two banks' raw files → one warehouse → native AI primitives → business
-> outcomes → the users at the top. The same `UBS_POV` dataset feeds every capability, and the
+> outcomes → the users at the top. The same `FSI_POV` dataset feeds every capability, and the
 > Conversational Analytics + Data Engineering agents sit between the data and the user so people
 > set *intent* while the platform does the heavy lifting.
 
@@ -155,10 +155,10 @@ above, up to the bankers and executives at the top.
 flowchart BT
     %% ===== bottom: cloud foundation =====
     VX["☁️ Vertex AI<br/>Gemini 2.5 Flash · text-embedding-005"]
-    GCS["☁️ GCS gs://ubs_pov<br/>raw UBS/* + CreditSuisse/* + documents"]
-    DF["🛠️ Dataform — ubs_pov_pipeline<br/><i>pipeline lineage; the DE agent operates here</i>"]
+    GCS["☁️ GCS gs://fsi_pov<br/>raw Apex Bank/* + SummitBank/* + documents"]
+    DF["🛠️ Dataform — fsi_pov_pipeline<br/><i>pipeline lineage; the DE agent operates here</i>"]
 
-    subgraph BQ["🗄️ BigQuery — dataset UBS_POV (us-central1)"]
+    subgraph BQ["🗄️ BigQuery — dataset FSI_POV (us-central1)"]
         direction LR
         Z1["Curated Client 360"]
         Z2["Autonomous embeddings<br/>+ vector index"]
@@ -179,7 +179,7 @@ flowchart BT
         ORC <-->|A2A| DE
         ORC <-->|A2A| DS
     end
-    CA["💬 Conversational Analytics Agent<br/><b>real</b> · Ask UBS"]
+    CA["💬 Conversational Analytics Agent<br/><b>real</b> · Ask Helix"]
 
     BQ -->|"BigQuery MCP / SQL"| AGENTS
     DF --> DE
@@ -243,7 +243,7 @@ renders from realistic local data. Done.
 
 ```bash
 export PROJECT=raves-altostrat REGION=us-central1
-export DATASET=UBS_POV BUCKET=ubs_pov CONNECTION=vertex_conn
+export DATASET=FSI_POV BUCKET=fsi_pov CONNECTION=vertex_conn
 ```
 
 ### 1 — Enable APIs & create resources
@@ -273,8 +273,8 @@ python make_all.py --gcp        # generate → upload to GCS → load BigQuery
 ```bash
 cd ..
 bq --project_id=$PROJECT --location=$REGION query --use_legacy_sql=false < infra/setup_bq.sql
-bq --project_id=$PROJECT --location=$REGION query --use_legacy_sql=false < infra/setup_ubs_attrition.sql
-bq --project_id=$PROJECT --location=$REGION query --use_legacy_sql=false < infra/setup_ubs_forecast.sql
+bq --project_id=$PROJECT --location=$REGION query --use_legacy_sql=false < infra/setup_apex_attrition.sql
+bq --project_id=$PROJECT --location=$REGION query --use_legacy_sql=false < infra/setup_apex_forecast.sql
 ```
 
 ### 4 — Run the backend (live)
@@ -301,7 +301,7 @@ npm run dev                              # proxies /api → :8080
 export GOOGLE_CLOUD_PROJECT=$PROJECT GCP_REGION=$REGION
 ./infra/deploy_cloudrun.sh
 ```
-Builds `ubs-helix-api` and `ubs-helix-web` and deploys both. Ensure the Cloud Run runtime
+Builds `fsi-helix-api` and `fsi-helix-web` and deploys both. Ensure the Cloud Run runtime
 service account has **BigQuery Job User**, **BigQuery Data Viewer**, **Vertex AI User**,
 and access to `us-central1.vertex_conn`.
 
@@ -310,14 +310,14 @@ and access to `us-central1.vertex_conn`.
 ## Project layout
 
 ```
-UBS/
-├── UBS_AGENTIC_POV_PLAN.md     design blueprint + UBS research
+Apex Bank/
+├── Apex Bank_AGENTIC_POV_PLAN.md     design blueprint + Apex Bank research
 ├── SPEAKER_PITCH.md            CxO demo narrative
 ├── README.md                   this file
 ├── infra/
 │   ├── setup_bq.sql            models · embeddings · vector index · property graph · KPIs
-│   ├── setup_ubs_attrition.sql attrition model + scoring + drivers + pipeline
-│   ├── setup_ubs_forecast.sql  AI.FORECAST (TimesFM) marts
+│   ├── setup_apex_attrition.sql attrition model + scoring + drivers + pipeline
+│   ├── setup_apex_forecast.sql  AI.FORECAST (TimesFM) marts
 │   ├── build_segments.py       real BQML KMeans + Gemini segment naming
 │   ├── deploy_cloudrun.sh
 │   └── env.example
@@ -332,16 +332,16 @@ UBS/
 
 ## Notes & caveats
 
-- **All data is synthetic.** No real UBS or Credit Suisse data is used.
+- **All data is synthetic.** No real Apex Bank or Summit Bank data is used.
 - **What's genuinely real vs. ours (be transparent in the room):**
-  - **Real Google products:** the **Conversational Analytics agent** (Ask UBS) and the
+  - **Real Google products:** the **Conversational Analytics agent** (Ask Helix) and the
     **Google Cloud Data Engineering Agent** (A2A, operating on the live Dataform workspace).
   - **Real BigQuery execution:** embeddings, vector index, property graph, BQML KMeans +
     attrition model, TimesFM forecasts — all openable in BigQuery and expressed as Dataform lineage.
   - **Our code:** the Orchestrator routing and the Data Scientist step (real BigQuery compute,
     not a packaged "DS agent" product — none is exposed in the API).
 - **Preview features:** TabularFM ships as a documented headline with a GA BQML default in
-  `setup_ubs_attrition.sql`; autonomous embeddings use the GA `ML.GENERATE_EMBEDDING` path.
+  `setup_apex_attrition.sql`; autonomous embeddings use the GA `ML.GENERATE_EMBEDDING` path.
 - **Cost / latency:** keep `DATA_SCALE=1`; forecast/score outputs are cached in tables; the
   backend falls back to fixtures on any live error so the demo never breaks. A full Agent
   Console run is ~60–100s (the DE and CA agents plan + run real BigQuery jobs) — pre-warm once.
