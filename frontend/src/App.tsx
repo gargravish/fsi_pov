@@ -34,12 +34,12 @@ export default function App() {
   return (
     <div className="flex min-h-screen">
       <aside className="w-64 shrink-0 border-r border-edge bg-panel/60 p-4 flex flex-col gap-1 sticky top-0 h-screen">
-        <div className="flex items-center gap-2 px-2 mb-5 min-h-[44px]">
+        <div className="flex items-center gap-2 px-2 mb-5 min-h-[72px]">
           {!logoFailed ? (
             <img
               src="/api/logo"
               alt="Logo"
-              className="max-h-9 max-w-[200px] object-contain"
+              className="max-h-16 max-w-[220px] object-contain"
               onError={() => setLogoFailed(true)}
             />
           ) : (
