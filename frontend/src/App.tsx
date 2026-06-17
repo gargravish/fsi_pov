@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import {
   LayoutDashboard, Combine, Network, ShieldAlert, TrendingUp, MessagesSquare,
@@ -28,15 +29,28 @@ const NAV = [
 ];
 
 export default function App() {
+  const [logoFailed, setLogoFailed] = useState(false);
+
   return (
     <div className="flex min-h-screen">
       <aside className="w-64 shrink-0 border-r border-edge bg-panel/60 p-4 flex flex-col gap-1 sticky top-0 h-screen">
-        <div className="flex items-center gap-2 px-2 mb-5">
-          <div className="h-9 w-9 rounded-xl bg-accent grid place-items-center font-extrabold text-white">U</div>
-          <div>
-            <div className="font-extrabold text-white leading-tight">FSI Helix</div>
-            <div className="text-[10px] text-muted tracking-wide">AGENTIC DATA PLATFORM</div>
-          </div>
+        <div className="flex items-center gap-2 px-2 mb-5 min-h-[44px]">
+          {!logoFailed ? (
+            <img
+              src="/api/logo"
+              alt="Logo"
+              className="max-h-9 max-w-[200px] object-contain"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <>
+              <div className="h-9 w-9 rounded-xl bg-accent grid place-items-center font-extrabold text-white">H</div>
+              <div>
+                <div className="font-extrabold text-white leading-tight">FSI Helix</div>
+                <div className="text-[10px] text-muted tracking-wide">AGENTIC DATA PLATFORM</div>
+              </div>
+            </>
+          )}
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map((n) => (

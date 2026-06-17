@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # BigQuery Conversational Analytics (Gemini Data Analytics) data agent
     CA_AGENT_ID: str = "agent_a61c018d-fc8f-45b1-ad42-2f70f83cd597"
     CA_LOCATION: str = "us"
+    BANK_LOGO_PATH: str = ""
     # Google Cloud Data Engineering Agent (real A2A agent operating on a Dataform workspace)
     USE_DE_AGENT: bool = True
     DE_AGENT_LOCATION: str = "us-central1"

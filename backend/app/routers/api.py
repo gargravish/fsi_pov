@@ -3,14 +3,25 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 
 from fastapi import APIRouter, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from .. import services
 from ..agents import orchestrator
+from ..config import settings
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/logo")
+def get_logo():
+    path = settings.BANK_LOGO_PATH
+    if path and os.path.exists(path) and os.path.isfile(path):
+        return FileResponse(path)
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="Logo not configured")
 
 
 def json_serial(obj):
