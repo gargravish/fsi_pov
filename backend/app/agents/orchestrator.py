@@ -117,7 +117,7 @@ def _plan(goal: str) -> str:
         return "segments"
     if any(k in g for k in ["cross", "next best", "recommend", "wallet", "product"]):
         return "nba"
-    if any(k in g for k in ["unify", "resolve", "merge", "credit suisse", "dedupe", "360"]):
+    if any(k in g for k in ["unify", "resolve", "merge", "summit", "apex", "dedupe", "360"]):
         return "unify"
     return "forecast"
 

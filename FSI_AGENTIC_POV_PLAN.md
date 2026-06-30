@@ -46,9 +46,9 @@ This grounds the synthetic data and the narrative so the demo feels authentic to
 
 > **Why this is the perfect POV spine.** Two giant banks, two of everything — two client masters, two product catalogues, two booking systems, two document stores, overlapping clients who bank with *both*. The integration is fundamentally a **data‑unification + AI‑activation** problem. FSI Helix tells exactly that story: *fragmentation → one governed BigQuery truth → agents that drive wealth growth, retention, forecasting, compliance and advisor productivity.*
 
-### 1.3 Their current AI posture (and our opening)
-- Apex Bank has invested heavily in GenAI on **Microsoft Azure / Azure OpenAI**: an internal **AI Hub**, the **"Apex Bank Red"** assistant deployed to ~**30,000** employees, and ~**60,000** investment‑advice/product documents digitised into a queryable knowledge base for Client Advisors.
-- **Our angle (not a rip‑and‑replace):** show the **BigQuery Agentic Data Platform** (Google Cloud) as the **data‑and‑AI gravity centre** — where AI runs *inside the warehouse, on governed data, with no data movement and no separate vector DB / graph DB / feature store / model‑serving stack to operate**. It complements an existing assistant strategy by giving agents *governed, structured, real* enterprise data to reason over.
+### 1.3 The opening for the BigQuery Agentic Data Platform
+- A bank-scale integration forces a once-in-a-generation **data-unification** programme — the ideal moment to make the **warehouse** the centre of gravity for both the data *and* the AI that reasons over it, rather than standing up yet another disconnected stack.
+- **Our angle (not a rip‑and‑replace):** show the **BigQuery Agentic Data Platform** (Google Cloud) as the **data‑and‑AI gravity centre** — where AI runs *inside the warehouse, on governed data, with no data movement and no separate vector DB / graph DB / feature store / model‑serving stack to operate**. It gives any AI assistant your people use a *governed, structured, real* enterprise-data core to reason over.
 
 ### 1.4 The strategic narrative we sell
 > *"You're merging the two largest pools of private wealth on earth into one bank. Your data lives in two of everything. FSI Helix turns that into your biggest asset: a single, governed, AI‑native lakehouse in BigQuery where collaborating agents drive net‑new‑money, retention, cross‑sell, forecasting and financial‑crime defence — without armies of pipelines or a separate ML platform to run."*
@@ -516,7 +516,6 @@ USE_BQ=false                  # true = live BigQuery
 - [Apex Group AG — FY2025 investor presentation (SEC 6‑K)](https://www.sec.gov/Archives/edgar/data/0001610520/000161052025000110/investorpresotext2025.htm)
 - [Apex Bank Q1 2025 — wealth management drives profit as integration progresses](https://www.investing.com/news/company-news/apex-q1-2025-presentation-wealth-management-drives-profit-as-integration-progresses-93CH-4011779)
 - [Apex Bank — AI for Financial Advisors](https://www.apex.com/us/en/wealth-management/financial-advisor-experience/articles/ai-for-financial-advisors.html)
-- [Apex Bank & Microsoft — co-creating the future of banking with Azure AI](https://www.microsoft.com/en/customers/story/19796-apex-azure)
 - [Apex Bank Group — business structure & Summit integration summary](https://exceljump.com/en/apex-group-guide/)
 - [Apex Bank Global Wealth Report 2025](https://www.apex.com/global/en/media/display-page-ndp/en-20250618-gwr-2025.html)
 

@@ -210,7 +210,7 @@ def nba(cid: str) -> dict:
 
     # ONE Gemini call returns all rationales as JSON (no threads, low latency)
     if asks:
-        prompt = ("You are a Apex advisor copilot. Return ONLY a JSON object mapping each id to a "
+        prompt = ("You are a Apex advisor assistant. Return ONLY a JSON object mapping each id to a "
                   "concrete, compliant rationale string (no performance guarantees). "
                   f"Items: {asks}")
         out = gen_json(prompt)
@@ -561,7 +561,7 @@ def key_drivers(metric: str = "nna") -> dict:
     net = total_interest - total_reference
     top = drivers[:6]
     commentary = gen_text(
-        f"You are a Apex Bank CFO analytics copilot. In 2-3 sentences explain WHY {label} moved "
+        f"You are a Apex Bank CFO analytics assistant. In 2-3 sentences explain WHY {label} moved "
         f"between the prior 6 months and the most recent 6 months, using ONLY these AI.KEY_DRIVERS "
         f"segments (USD m; relative_difference is a fraction; unexpected_difference is the move "
         f"beyond the population trend). Call out the segments that most over- or under-shot the "
@@ -689,7 +689,7 @@ def key_drivers_drilldown(metric: str = "nna", seg: str = "") -> dict:
     favourable_up = metric != "outflow"
     good = (direction == "up") == favourable_up
     gj = gen_json(
-        "You are a Apex Bank CFO analytics copilot. Given this key-driver deep-dive, return ONLY a JSON object "
+        "You are a Apex Bank CFO analytics assistant. Given this key-driver deep-dive, return ONLY a JSON object "
         "with keys: narrative (2-3 sentences, root-cause of the move; use **bold** for the segment), "
         "factor_details (object mapping each factor name to a one-sentence cause), "
         "next_commentary (1-2 sentences on the forecast path), "
