@@ -26,7 +26,7 @@ export default function Home() {
     <div className="space-y-7">
       <Card className="relative overflow-hidden">
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-accent/20 blur-3xl" />
-        <Badge tone="red">Google Cloud Agentic Data Platform · POV</Badge>
+        <Badge tone="red">BigQuery Agentic Data Platform · POV</Badge>
         <h1 className="text-3xl font-extrabold text-white mt-3 max-w-3xl leading-tight">
           From two banks and two of everything to one agentic intelligence layer.
         </h1>

@@ -1,6 +1,6 @@
 # FSI Helix
 
-**An agentic wealth-&-banking intelligence demo on the Google Cloud Agentic Data Platform.**
+**An agentic wealth-&-banking intelligence demo on the BigQuery Agentic Data Platform (Google Cloud).**
 
 FSI Helix takes the reality of the **Apex Bank + Summit Bank integration** — two banks, two
 of everything, fragmented formats, overlapping clients — and turns it into a unified,

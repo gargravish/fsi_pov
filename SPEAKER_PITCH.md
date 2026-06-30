@@ -1,7 +1,7 @@
 # FSI Helix — C-Level Workshop Pitch
 
-> A 12–15 minute narrated walk-through of FSI Helix on the **Google Cloud Agentic Data
-> Platform**. The spine is the **Summit Bank integration**: two banks, two of everything,
+> A 12–15 minute narrated walk-through of FSI Helix on the **BigQuery Agentic Data
+> Platform** (Google Cloud). The spine is the **Summit Bank integration**: two banks, two of everything,
 > overlapping clients — turned into one governed, agent-driven intelligence layer in BigQuery.
 > All data is synthetic.
 
@@ -49,8 +49,9 @@
   decommissioning is fundamentally a **data-unification + AI-activation** problem.
 - **$13bn cost-savings programme** funds technology and AI — this is where the gravity should sit.
 - **~$200bn NNA/yr by 2028** and a **<70% cost/income** ambition — every screen ties to those numbers.
-- It **complements** the existing Azure/Apex Bank-Red assistant strategy by giving agents *governed,
-  structured, real* enterprise data to reason over.
+- It makes the **BigQuery Agentic Data Platform** the *data-and-AI gravity centre* — giving any AI
+  assistant your people use a **governed, structured, real** enterprise-data core to reason over,
+  with the heavy analytical AI running where the data already lives.
 
 ---
 
@@ -110,15 +111,17 @@
 > key-driver and anomaly analysis, the attrition model, the document index — reasoned over by
 > agents on governed, unified data. No
 > data movement. No separate vector DB, graph DB, feature store, or model-serving stack to run.
-> That's the Google Cloud Agentic Data Platform: the place your integrated data and your AI
+> That's the **BigQuery Agentic Data Platform**: the place your integrated data and your AI
 > belong together."*
 
 ## Likely questions
 
 - **"Is this real or mocked?"** Live mode runs real BigQuery AI on `raves-altostrat`. Demo mode
   uses fixtures for air-gapped rooms. Same UI, one flag.
-- **"What about Azure / Apex Bank Red?"** Complementary — Helix is the *data-and-AI core* that feeds
-  governed structured data to whichever assistant surface you choose.
+- **"How does this fit our existing GenAI assistant investment?"** Complementary, not rip-and-replace —
+  the BigQuery Agentic Data Platform is the governed *data-and-AI core* that feeds structured, real
+  enterprise data — and warehouse-native AI (forecasting, key drivers, graph, RAG) — to whichever
+  assistant surface your people use.
 - **"TabularFM / TimesFM maturity?"** TimesFM forecasting is live here; TabularFM ships with a
   GA boosted-tree default and the same scoring contract, so nothing in the UI changes.
 - **"Is the driver analysis real?"** Yes — `AI.KEY_DRIVERS`, `AI.FORECAST` and `AI.DETECT_ANOMALIES`

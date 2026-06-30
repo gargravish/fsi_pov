@@ -53,7 +53,7 @@ export default function App() {
                 <div className="h-12 w-12 rounded-xl bg-accent grid place-items-center font-extrabold text-white text-xl">H</div>
                 <div>
                   <div className="font-extrabold text-white leading-tight">FSI Helix</div>
-                  <div className="text-[10px] text-muted tracking-wide">AGENTIC DATA PLATFORM</div>
+                  <div className="text-[10px] text-muted tracking-wide">BIGQUERY AGENTIC DATA PLATFORM</div>
                 </div>
               </div>
             )}
