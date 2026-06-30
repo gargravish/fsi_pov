@@ -273,6 +273,316 @@ def forecast(metric: str, division: str, region: str) -> dict:
     return {"metric": metric, "history": hist, "forecast": fc, "commentary": comm}
 
 
+def _kd_row(seg: list[tuple[str, str]], interest: float, reference: float,
+            unexpected: float, contribution: float, support: float) -> dict:
+    pairs = [{"name": n, "value": v} for n, v in seg]
+    diff = round(interest - reference, 2)
+    rel = round((interest - reference) / abs(reference), 4) if reference else 0.0
+    return {
+        "label": " · ".join(v for _, v in seg),
+        "segment": pairs,
+        "metric_interest_usd_m": round(interest, 2),
+        "metric_reference_usd_m": round(reference, 2),
+        "difference_usd_m": diff,
+        "relative_difference": rel,
+        "unexpected_difference_usd_m": round(unexpected, 2),
+        "contribution": contribution,
+        "apriori_support": support,
+        "direction": "up" if diff >= 0 else "down",
+    }
+
+
+# Hand-tuned, deterministic AI.KEY_DRIVERS output that tells the integration
+# story: APAC growth pulls NNA up; dual-banked Swiss clients (integration
+# overlap) drag it down by more than the population trend explains.
+_KD_NNA = [
+    _kd_row([("region", "APAC"), ("segment_tier", "UHNW")],            812.0, 540.0,  198.0, 0.214, 0.121),
+    _kd_row([("booking_centre", "Geneva"), ("banking", "Dual-banked (Apex + Summit)")], 96.0, 318.0, -171.0, 0.165, 0.094),
+    _kd_row([("booking_centre", "Hong Kong")],                          604.0, 470.0,  121.0, 0.142, 0.158),
+    _kd_row([("segment_tier", "Family Office"), ("region", "EMEA")],    288.0, 196.0,   88.0, 0.118, 0.067),
+    _kd_row([("booking_centre", "Zurich"), ("banking", "Dual-banked (Apex + Summit)")], 142.0, 286.0, -109.0, 0.108, 0.102),
+    _kd_row([("segment_tier", "Affluent"), ("risk_profile", "Conservative")], 174.0, 252.0, -64.0, 0.082, 0.144),
+    _kd_row([("region", "Americas"), ("segment_tier", "HNW")],          356.0, 300.0,   47.0, 0.071, 0.116),
+    _kd_row([("risk_profile", "Aggressive"), ("region", "APAC")],       228.0, 168.0,   54.0, 0.069, 0.058),
+    _kd_row([("segment_tier", "Institutional")],                        410.0, 372.0,   31.0, 0.044, 0.071),
+]
+_KD_INFLOW = [
+    _kd_row([("region", "APAC"), ("segment_tier", "UHNW")],           1240.0, 980.0,  176.0, 0.198, 0.121),
+    _kd_row([("booking_centre", "Hong Kong")],                        1010.0, 860.0,  118.0, 0.151, 0.158),
+    _kd_row([("segment_tier", "Family Office"), ("region", "EMEA")],   520.0, 410.0,   84.0, 0.122, 0.067),
+    _kd_row([("region", "Americas"), ("segment_tier", "HNW")],         690.0, 600.0,   58.0, 0.094, 0.116),
+    _kd_row([("booking_centre", "Singapore")],                         470.0, 408.0,   46.0, 0.077, 0.083),
+    _kd_row([("segment_tier", "Affluent"), ("risk_profile", "Growth")],380.0, 352.0,   24.0, 0.051, 0.139),
+]
+_KD_OUTFLOW = [
+    _kd_row([("booking_centre", "Geneva"), ("banking", "Dual-banked (Apex + Summit)")], 402.0, 214.0, 158.0, 0.231, 0.094),
+    _kd_row([("booking_centre", "Zurich"), ("banking", "Dual-banked (Apex + Summit)")], 318.0, 198.0, 101.0, 0.164, 0.102),
+    _kd_row([("segment_tier", "Affluent"), ("risk_profile", "Conservative")], 246.0, 188.0, 49.0, 0.097, 0.144),
+    _kd_row([("region", "EMEA"), ("segment_tier", "HNW")],             290.0, 244.0,   38.0, 0.082, 0.131),
+    _kd_row([("booking_centre", "London")],                            210.0, 180.0,   27.0, 0.061, 0.088),
+]
+_KD = {
+    "nna":     ("Net New Money",  "higher", _KD_NNA),
+    "inflow":  ("Gross Inflows",  "higher", _KD_INFLOW),
+    "outflow": ("Gross Outflows", "lower",  _KD_OUTFLOW),
+}
+_KD_COMMENTARY = {
+    "nna": ("Net New Money rose overall, but the gain is uneven: **APAC UHNW** and **Hong Kong** "
+            "booking centres pulled NNA well above the bankwide trend (+USD 198m / +USD 121m "
+            "unexpected), while **dual-banked clients in Geneva and Zurich** dragged it down by far "
+            "more than the trend explains (−USD 171m / −USD 109m unexpected) — the integration-overlap "
+            "cohort to defend first. Sustaining the APAC momentum while stemming Swiss dual-banked "
+            "outflows is the clearest path to the $200bn net-new-money ambition."),
+    "inflow": ("Gross inflows are being driven by **APAC UHNW** and **Hong Kong**, which together "
+               "contribute the bulk of the recent uplift and over-shoot the population trend — "
+               "consistent with the post-integration push into Asia-Pacific wealth."),
+    "outflow": ("The recent rise in outflows is concentrated in **dual-banked (Apex + Summit) "
+                "clients booked in Geneva and Zurich** — the integration-overlap cohort — which "
+                "exceed the bankwide outflow trend by the widest margin and warrant immediate "
+                "retention attention."),
+}
+
+
+def key_drivers(metric: str = "nna") -> dict:
+    label, direction, drivers = _KD.get(metric, _KD["nna"])
+    drivers = sorted(drivers, key=lambda d: -abs(d["unexpected_difference_usd_m"]))
+    ti = round(sum(d["metric_interest_usd_m"] for d in drivers), 1)
+    tr = round(sum(d["metric_reference_usd_m"] for d in drivers), 1)
+    return {
+        "metric": metric, "metric_label": label, "direction": direction,
+        "interest_period": "Most recent 6 months", "reference_period": "Prior 6 months",
+        "total_interest_usd_m": ti, "total_reference_usd_m": tr,
+        "net_change_usd_m": round(ti - tr, 1),
+        "drivers": drivers,
+        "commentary": _KD_COMMENTARY.get(metric, _KD_COMMENTARY["nna"]),
+    }
+
+
+_KD_HIST_MONTHS = ["2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+                   "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"]
+_KD_FC_MONTHS = ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
+
+
+_KD_DS = "raves-altostrat.FSI_POV"
+_KD_COL = {"nna": ("net_new_money_usd", "Net New Money"),
+           "inflow": ("inflow_usd", "Gross Inflows"),
+           "outflow": ("outflow_usd", "Gross Outflows")}
+_KD_ALL_DIMS = ["segment_tier", "region", "booking_centre", "risk_profile", "banking"]
+
+
+def _kd_dim_expr(n: str) -> str:
+    return ("IF(c.dual_banked, 'Dual-banked (Apex + Summit)', 'Single-bank')"
+            if n == "banking" else f"c.{n}")
+
+
+def _kd_where(pairs: list[dict]) -> str:
+    parts = []
+    for p in pairs:
+        if p["name"] == "banking":
+            parts.append("c.dual_banked = TRUE" if p["value"].lower().startswith("dual") else "c.dual_banked = FALSE")
+        else:
+            parts.append(f"{_kd_dim_expr(p['name'])} = '{p['value']}'")
+    return "\n     AND ".join(parts) or "TRUE"
+
+
+def kd_sql_block(metric: str, pairs: list[dict], recent: float, prior: float, good: bool) -> dict:
+    """The real AI-function SQL behind each deep-dive stage, scoped to this segment.
+    Shared by the live BigQuery layer and the fixtures so the UI shows identical SQL."""
+    col, label = _KD_COL.get(metric, _KD_COL["nna"])
+    where = _kd_where(pairs)
+    subs = [d for d in _KD_ALL_DIMS if d not in {p["name"] for p in pairs}]
+    sub_select = ",\n            ".join(f"{_kd_dim_expr(d)} AS {d}" for d in subs) or "c.segment_tier"
+    sub_list = "[" + ", ".join(f"'{d}'" for d in subs) + "]" if subs else "['segment_tier']"
+    seg_text = " · ".join(p["value"] for p in pairs)
+    return {
+        "anomalies": f"""-- WHAT HAPPENED · AI.DETECT_ANOMALIES — flag the anomalous months in this
+-- segment's monthly {label} series (recent dip/spike vs its own history).
+SELECT month, metric AS {col}, is_anomaly, anomaly_probability
+FROM AI.DETECT_ANOMALIES(
+  (SELECT TIMESTAMP_TRUNC(TIMESTAMP(f.month), MONTH) AS month,
+          SUM(f.{col}) AS metric
+   FROM `{_KD_DS}.client_flows` f
+   JOIN `{_KD_DS}.clients`  c USING (client_id)
+   WHERE {where}
+     AND f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)
+   GROUP BY month),
+  data_col              => 'metric',
+  timestamp_col         => 'month',
+  anomaly_prob_threshold => 0.95)
+ORDER BY month;""",
+        "drivers": f"""-- WHY IT HAPPENED · AI.KEY_DRIVERS — within this segment, rank the sub-segments
+-- driving the change (recent 6m = interest vs prior 6m = reference).
+SELECT * FROM AI.KEY_DRIVERS(
+  (SELECT {sub_select},
+          f.{col} AS metric,
+          f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 6 MONTH) AS is_recent
+   FROM `{_KD_DS}.client_flows` f
+   JOIN `{_KD_DS}.clients`  c USING (client_id)
+   WHERE {where}
+     AND f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)),
+  metric_col         => 'metric',
+  dimension_cols     => {sub_list},
+  interest_label_col => 'is_recent',
+  top_k              => 10)
+ORDER BY ABS(unexpected_difference) DESC;""",
+        "forecast": f"""-- WHAT'S NEXT · AI.FORECAST (TimesFM 2.5) — 6-month forward path of this
+-- segment's monthly {label}, with a 90% prediction interval.
+SELECT forecast_timestamp, forecast_value,
+       prediction_interval_lower_bound, prediction_interval_upper_bound
+FROM AI.FORECAST(
+  (SELECT TIMESTAMP(f.month) AS month, SUM(f.{col}) AS v
+   FROM `{_KD_DS}.client_flows` f
+   JOIN `{_KD_DS}.clients`  c USING (client_id)
+   WHERE {where}
+   GROUP BY month),
+  data_col         => 'v',
+  timestamp_col    => 'month',
+  model            => 'TimesFM 2.5',
+  horizon          => 6,
+  confidence_level => 0.9)
+ORDER BY forecast_timestamp;""",
+        "prevention": f"""-- HOW TO {'SUSTAIN' if good else 'PREVENT'} IT · AI.GENERATE — compliant actions grounded in the numbers.
+SELECT AI.GENERATE(
+  CONCAT('Recommend 3-4 concrete, compliant actions for a Apex Bank market head to ',
+         '{'sustain' if good else 'prevent and reverse'} the recent {label} move for the ',
+         '"{seg_text}" segment. Recent 6m USD {recent}m vs prior 6m USD {prior}m. ',
+         'Tie to the Apex-Summit integration and the $200bn net-new-money ambition.'),
+  connection_id => 'us-central1.vertex_conn',
+  endpoint      => 'gemini-2.5-flash').result AS recommended_actions;""",
+    }
+
+
+def _parse_seg(seg: str) -> list[dict]:
+    pairs = []
+    for tok in (seg or "").split("|"):
+        if ":" in tok:
+            n, _, v = tok.partition(":")
+            pairs.append({"name": n.strip(), "value": v.strip()})
+    return pairs
+
+
+def key_drivers_drilldown(metric: str = "nna", seg: str = "") -> dict:
+    label, direction, rows = _KD.get(metric, _KD["nna"])
+    pairs = _parse_seg(seg)
+    want = {(p["name"], p["value"]) for p in pairs}
+    drv = next((d for d in rows if {(s["name"], s["value"]) for s in d["segment"]} == want), None) \
+        or next((d for d in rows if pairs and d["label"] == " · ".join(p["value"] for p in pairs)), None) \
+        or rows[0]
+
+    seg_lower = drv["label"].lower()
+    is_dual = "dual-banked" in seg_lower
+    is_apac = any(k in seg_lower for k in ("apac", "hong kong", "singapore"))
+    down = drv["direction"] == "down"
+
+    prior_avg = drv["metric_reference_usd_m"] / 6
+    recent_avg = drv["metric_interest_usd_m"] / 6
+    trend = []
+    for i, ts in enumerate(_KD_HIST_MONTHS):
+        value = round((prior_avg if i < 6 else recent_avg) * (1 + (((i * 37) % 7) - 3) / 100), 2)
+        is_anom = i >= 6 and (value < prior_avg * 0.85 if down else value > prior_avg * 1.15)
+        trend.append({"ts": ts, "value": value, "is_anomaly": bool(is_anom)})
+    slope = (recent_avg - prior_avg) / 6
+    forecast = []
+    for i, ts in enumerate(_KD_FC_MONTHS):
+        yhat = round(recent_avg + slope * (i + 1) * 0.6, 2)
+        spread = abs(yhat) * (0.07 + i * 0.015)
+        forecast.append({"ts": ts, "yhat": yhat, "lo": round(yhat - spread, 2), "hi": round(yhat + spread, 2)})
+
+    diff = drv["difference_usd_m"]
+    if is_dual:
+        factors = [
+            {"factor": "Integration-overlap attrition", "impact_usd_m": round(diff * 0.52, 1),
+             "detail": "Dual-banked clients consolidating away from the former Summit relationship as the platforms merge — duplicated mandates and fee-schedule overlap."},
+            {"factor": "Fee & pricing harmonisation", "impact_usd_m": round(diff * 0.28, 1),
+             "detail": "Repricing to the unified Apex schedule triggered partial withdrawals among price-sensitive Swiss-booked clients."},
+            {"factor": "Advisor reassignment", "impact_usd_m": round(diff * 0.20, 1),
+             "detail": "Relationship-manager changes during migration reduced engagement and prompted balance transfers."},
+        ]
+    elif is_apac:
+        factors = [
+            {"factor": "New-client acquisition", "impact_usd_m": round(diff * 0.49, 1),
+             "detail": "Onboarding of UHNW entrepreneurs in Hong Kong & Singapore following the integrated APAC platform launch."},
+            {"factor": "Mandate up-tiering", "impact_usd_m": round(diff * 0.31, 1),
+             "detail": "Existing clients moving from advisory into discretionary and private-markets mandates."},
+            {"factor": "FX / market tailwind", "impact_usd_m": round(diff * 0.20, 1),
+             "detail": "Favourable currency moves and equity performance lifted reported flows for the cohort."},
+        ]
+    else:
+        factors = [
+            {"factor": "Allocation shift", "impact_usd_m": round(diff * 0.46, 1),
+             "detail": "Net reallocation between cash and invested mandates within the segment."},
+            {"factor": "Seasonality", "impact_usd_m": round(diff * 0.30, 1),
+             "detail": "Recurring half-year funding/liquidity pattern typical for this cohort."},
+            {"factor": "Pricing & engagement", "impact_usd_m": round(diff * 0.24, 1),
+             "detail": "Changes in fee sensitivity and advisor contact frequency over the period."},
+        ]
+
+    if down:
+        narrative = (f"**{drv['label']}** {'outflows rose' if metric == 'outflow' else 'flows fell'} from "
+                     f"${abs(drv['metric_reference_usd_m'])}m to ${abs(drv['metric_interest_usd_m'])}m over the recent "
+                     f"six months ({drv['relative_difference'] * 100:.1f}%), about ${abs(drv['unexpected_difference_usd_m'])}m "
+                     f"worse than the bankwide trend would predict. The move is driven mainly by {factors[0]['factor'].lower()}"
+                     f"{' — the classic post-merger consolidation risk where clients who held both Apex and Summit relationships rationalise down to one provider' if is_dual else ''}. "
+                     f"This is a controllable, relationship-led decline rather than a market effect, which is why it warrants direct intervention.")
+        prevention = [
+            {"title": "Launch a dual-banked retention sprint" if is_dual else "Targeted retention outreach",
+             "detail": ("Auto-enrol every dual-banked client in this segment into the Flight-Risk Sentinel save-play queue; "
+                        "senior-advisor calls within 10 business days, consolidated cross-bank pricing on the table." if is_dual
+                        else "Prioritise advisor outreach to the highest-balance accounts in this segment with a portfolio health-check offer."),
+             "owner": "Regional Market Head"},
+            {"title": "Pre-empt fee-driven attrition",
+             "detail": "Apply grandfathered or blended pricing for migrating clients for 12 months; flag any repricing >15bps for relationship-manager review before it lands.",
+             "owner": "Pricing & Revenue Mgmt"},
+            {"title": "Stabilise relationship continuity",
+             "detail": "Freeze advisor reassignments for at-risk dual-banked clients during migration; assign a named transition contact per household.",
+             "owner": "COO / Integration Office"},
+            {"title": "Add an early-warning monitor",
+             "detail": "Stand up a weekly AI.KEY_DRIVERS + attrition watch on this segment so an unexpected-difference breach pages the desk before the quarter closes.",
+             "owner": "Data & Analytics"},
+        ]
+        nxt = (f"Left unmanaged, {drv['label']} stays below trend through H2 — an estimated "
+               f"${abs(sum(f['yhat'] for f in forecast)):.0f}m over the next six months, widening confidence bands as "
+               f"attrition compounds. The retention actions below are modelled to arrest and reverse the slide.")
+    else:
+        narrative = (f"**{drv['label']}** {'outflows' if metric == 'outflow' else 'flows'} grew from "
+                     f"${drv['metric_reference_usd_m']}m to ${drv['metric_interest_usd_m']}m ({drv['relative_difference'] * 100:.1f}%), "
+                     f"roughly ${drv['unexpected_difference_usd_m']}m above the bankwide trend. The uplift is led by "
+                     f"{factors[0]['factor'].lower()}{', reflecting the integrated APAC platform gaining share in the fastest-growing wealth pool' if is_apac else ''}. "
+                     f"Protecting and replicating this momentum is the priority.")
+        prevention = [
+            {"title": "Codify and scale the winning play",
+             "detail": "Document the acquisition + up-tiering motion behind this cohort and roll it out to comparable segments in adjacent booking centres.",
+             "owner": "Regional Market Head"},
+            {"title": "Protect the gains",
+             "detail": "Lock in newly onboarded UHNW clients with onboarding-plus journeys and private-markets access before competitors respond.",
+             "owner": "Product & Advisory"},
+            {"title": "Reinforce capacity",
+             "detail": "Ensure advisor and booking-centre capacity keeps pace with the inflow so service quality does not dilute the momentum.",
+             "owner": "COO"},
+        ]
+        nxt = (f"On current trajectory {drv['label']} continues above trend into H2, contributing an estimated "
+               f"${sum(f['yhat'] for f in forecast):.0f}m over the next six months — a meaningful step toward the "
+               f"$200bn NNA ambition if capacity keeps pace.")
+
+    good = (drv["direction"] == "up") == (metric != "outflow")
+    sql = kd_sql_block(metric, drv["segment"], drv["metric_interest_usd_m"], drv["metric_reference_usd_m"], good)
+
+    return {
+        "metric": metric, "metric_label": label, "label": drv["label"],
+        "segment": drv["segment"], "direction": drv["direction"],
+        "what_happened": {
+            "recent_usd_m": drv["metric_interest_usd_m"], "prior_usd_m": drv["metric_reference_usd_m"],
+            "difference_usd_m": drv["difference_usd_m"], "relative_difference": drv["relative_difference"],
+            "unexpected_difference_usd_m": drv["unexpected_difference_usd_m"],
+            "contribution": drv["contribution"], "apriori_support": drv["apriori_support"], "trend": trend,
+            "ai_function": "AI.DETECT_ANOMALIES", "sql": sql["anomalies"],
+        },
+        "rca": {"narrative": narrative, "factors": factors, "ai_function": "AI.KEY_DRIVERS", "sql": sql["drivers"]},
+        "whats_next": {"forecast": forecast, "commentary": nxt, "ai_function": "AI.FORECAST", "sql": sql["forecast"]},
+        "prevention": {"actions": prevention, "ai_function": "AI.GENERATE", "sql": sql["prevention"]},
+    }
+
+
 def research_search(q: str) -> list[dict]:
     docs = [
         ("DOC_000012", "Apex CIO Research — Private credit allocation for UHNW portfolios",

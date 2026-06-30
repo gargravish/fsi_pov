@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import {
-  LayoutDashboard, Combine, Network, ShieldAlert, TrendingUp, MessagesSquare,
+  LayoutDashboard, Combine, Network, ShieldAlert, TrendingUp, Microscope, MessagesSquare,
   FileSearch, GitGraph, Boxes, Bot,
 } from "lucide-react";
 import Home from "./pages/Home";
@@ -9,6 +9,7 @@ import Unify from "./pages/Unify";
 import Nba from "./pages/Nba";
 import Retention from "./pages/Retention";
 import Forecast from "./pages/Forecast";
+import DriverLens from "./pages/DriverLens";
 import Ask from "./pages/Ask";
 import Research from "./pages/Research";
 import NetworkGuard from "./pages/NetworkGuard";
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/nba", label: "Next-Best-Action", icon: Network },
   { to: "/retention", label: "Flight-Risk Sentinel", icon: ShieldAlert },
   { to: "/forecast", label: "Forecast Room", icon: TrendingUp },
+  { to: "/drivers", label: "Driver Lens", icon: Microscope },
   { to: "/ask", label: "Ask Helix", icon: MessagesSquare },
   { to: "/research", label: "Research Brain", icon: FileSearch },
   { to: "/network", label: "Network Guard", icon: GitGraph },
@@ -30,27 +32,32 @@ const NAV = [
 
 export default function App() {
   const [logoFailed, setLogoFailed] = useState(false);
+  // mount-time cache-buster so a page reload always fetches the latest logo
+  const [logoBust] = useState(() => Date.now());
 
   return (
     <div className="flex min-h-screen">
       <aside className="w-64 shrink-0 border-r border-edge bg-panel/60 p-4 flex flex-col gap-1 sticky top-0 h-screen">
-        <div className="flex items-center gap-2 px-2 mb-5 min-h-[72px]">
-          {!logoFailed ? (
-            <img
-              src="/api/logo"
-              alt="Logo"
-              className="max-h-16 max-w-[220px] object-contain"
-              onError={() => setLogoFailed(true)}
-            />
-          ) : (
-            <>
-              <div className="h-9 w-9 rounded-xl bg-accent grid place-items-center font-extrabold text-white">H</div>
-              <div>
-                <div className="font-extrabold text-white leading-tight">FSI Helix</div>
-                <div className="text-[10px] text-muted tracking-wide">AGENTIC DATA PLATFORM</div>
+        {/* Centered, enlarged logo frame — any image dropped in /Logo auto-fits */}
+        <div className="mb-6 mt-1">
+          <div className="w-full h-32 rounded-2xl border border-edge bg-transparent grid place-items-center p-4 overflow-hidden">
+            {!logoFailed ? (
+              <img
+                src={`/api/logo?t=${logoBust}`}
+                alt="Logo"
+                className="w-full h-full object-contain"
+                onError={() => setLogoFailed(true)}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="h-12 w-12 rounded-xl bg-accent grid place-items-center font-extrabold text-white text-xl">H</div>
+                <div>
+                  <div className="font-extrabold text-white leading-tight">FSI Helix</div>
+                  <div className="text-[10px] text-muted tracking-wide">AGENTIC DATA PLATFORM</div>
+                </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map((n) => (
@@ -72,6 +79,7 @@ export default function App() {
           <Route path="/nba" element={<Nba />} />
           <Route path="/retention" element={<Retention />} />
           <Route path="/forecast" element={<Forecast />} />
+          <Route path="/drivers" element={<DriverLens />} />
           <Route path="/ask" element={<Ask />} />
           <Route path="/research" element={<Research />} />
           <Route path="/network" element={<NetworkGuard />} />

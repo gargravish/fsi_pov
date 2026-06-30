@@ -81,6 +81,67 @@ export interface ForecastResult {
   forecast: ForecastPoint[];
   commentary: string;
 }
+export interface KeyDriver {
+  label: string;
+  segment: { name: string; value: string }[];
+  metric_interest_usd_m: number;
+  metric_reference_usd_m: number;
+  difference_usd_m: number;
+  relative_difference: number;
+  unexpected_difference_usd_m: number;
+  contribution: number;
+  apriori_support: number;
+  direction: "up" | "down";
+}
+export interface KeyDriversResult {
+  metric: string;
+  metric_label: string;
+  direction: "higher" | "lower";
+  interest_period: string;
+  reference_period: string;
+  total_interest_usd_m: number;
+  total_reference_usd_m: number;
+  net_change_usd_m: number;
+  drivers: KeyDriver[];
+  commentary: string;
+}
+export interface TrendPoint {
+  ts: string;
+  value: number;
+  is_anomaly?: boolean;
+}
+export interface RcaFactor {
+  factor: string;
+  impact_usd_m: number;
+  detail: string;
+}
+export interface PreventionAction {
+  title: string;
+  detail: string;
+  owner: string;
+}
+export interface DriverDrilldown {
+  metric: string;
+  metric_label: string;
+  label: string;
+  segment: { name: string; value: string }[];
+  direction: "up" | "down";
+  what_happened: {
+    recent_usd_m: number;
+    prior_usd_m: number;
+    difference_usd_m: number;
+    relative_difference: number;
+    unexpected_difference_usd_m: number;
+    contribution: number;
+    apriori_support: number;
+    trend: TrendPoint[];
+    ai_function: string;
+    sql: string;
+  };
+  rca: { narrative: string; factors: RcaFactor[]; ai_function: string; sql: string };
+  whats_next: { forecast: ForecastPoint[]; commentary: string; ai_function: string; sql: string };
+  prevention: { actions: PreventionAction[]; ai_function: string; sql: string };
+}
 export interface DocHit {
   document_id: string;
   title: string;

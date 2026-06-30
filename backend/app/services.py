@@ -69,6 +69,14 @@ def forecast(metric: str, division: str, region: str):
     return _live("forecast", metric, division, region) or fx.forecast(metric, division, region)
 
 
+def key_drivers(metric: str):
+    return _live("key_drivers", metric) or fx.key_drivers(metric)
+
+
+def key_drivers_drilldown(metric: str, seg: str):
+    return _live("key_drivers_drilldown", metric, seg) or fx.key_drivers_drilldown(metric, seg)
+
+
 def research_search(q: str):
     return _live("research_search", q) or fx.research_search(q)
 

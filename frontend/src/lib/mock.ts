@@ -1,7 +1,270 @@
 import type {
   Kpis, Source, UnifyResult, ClientHit, NbaResult, RetentionScore,
-  ForecastResult, DocHit, Segment, AgentStep, AskBlock,
+  ForecastResult, KeyDriversResult, KeyDriver, DriverDrilldown, DocHit, Segment, AgentStep, AskBlock,
 } from "./types";
+
+// ---- AI.KEY_DRIVERS mock data + builders (module scope so both the ranked
+// list and the per-driver drill-down draw from one consistent source) ---------
+type KdSeg = [string, string][];
+function kdMake(seg: KdSeg, interest: number, reference: number,
+                unexpected: number, contribution: number, support: number): KeyDriver {
+  const difference = +(interest - reference).toFixed(2);
+  return {
+    label: seg.map(([, v]) => v).join(" · "),
+    segment: seg.map(([name, value]) => ({ name, value })),
+    metric_interest_usd_m: interest, metric_reference_usd_m: reference,
+    difference_usd_m: difference,
+    relative_difference: reference ? +((interest - reference) / Math.abs(reference)).toFixed(4) : 0,
+    unexpected_difference_usd_m: unexpected, contribution, apriori_support: support,
+    direction: difference >= 0 ? "up" : "down",
+  };
+}
+const KD_TABLES: Record<string, { label: string; direction: "higher" | "lower"; rows: KeyDriver[] }> = {
+  nna: { label: "Net New Money", direction: "higher", rows: [
+    kdMake([["region", "APAC"], ["segment_tier", "UHNW"]], 812, 540, 198, 0.214, 0.121),
+    kdMake([["booking_centre", "Geneva"], ["banking", "Dual-banked (Apex + Summit)"]], 96, 318, -171, 0.165, 0.094),
+    kdMake([["booking_centre", "Hong Kong"]], 604, 470, 121, 0.142, 0.158),
+    kdMake([["segment_tier", "Family Office"], ["region", "EMEA"]], 288, 196, 88, 0.118, 0.067),
+    kdMake([["booking_centre", "Zurich"], ["banking", "Dual-banked (Apex + Summit)"]], 142, 286, -109, 0.108, 0.102),
+    kdMake([["segment_tier", "Affluent"], ["risk_profile", "Conservative"]], 174, 252, -64, 0.082, 0.144),
+    kdMake([["region", "Americas"], ["segment_tier", "HNW"]], 356, 300, 47, 0.071, 0.116),
+    kdMake([["risk_profile", "Aggressive"], ["region", "APAC"]], 228, 168, 54, 0.069, 0.058),
+    kdMake([["segment_tier", "Institutional"]], 410, 372, 31, 0.044, 0.071),
+  ] },
+  inflow: { label: "Gross Inflows", direction: "higher", rows: [
+    kdMake([["region", "APAC"], ["segment_tier", "UHNW"]], 1240, 980, 176, 0.198, 0.121),
+    kdMake([["booking_centre", "Hong Kong"]], 1010, 860, 118, 0.151, 0.158),
+    kdMake([["segment_tier", "Family Office"], ["region", "EMEA"]], 520, 410, 84, 0.122, 0.067),
+    kdMake([["region", "Americas"], ["segment_tier", "HNW"]], 690, 600, 58, 0.094, 0.116),
+    kdMake([["booking_centre", "Singapore"]], 470, 408, 46, 0.077, 0.083),
+    kdMake([["segment_tier", "Affluent"], ["risk_profile", "Growth"]], 380, 352, 24, 0.051, 0.139),
+  ] },
+  outflow: { label: "Gross Outflows", direction: "lower", rows: [
+    kdMake([["booking_centre", "Geneva"], ["banking", "Dual-banked (Apex + Summit)"]], 402, 214, 158, 0.231, 0.094),
+    kdMake([["booking_centre", "Zurich"], ["banking", "Dual-banked (Apex + Summit)"]], 318, 198, 101, 0.164, 0.102),
+    kdMake([["segment_tier", "Affluent"], ["risk_profile", "Conservative"]], 246, 188, 49, 0.097, 0.144),
+    kdMake([["region", "EMEA"], ["segment_tier", "HNW"]], 290, 244, 38, 0.082, 0.131),
+    kdMake([["booking_centre", "London"]], 210, 180, 27, 0.061, 0.088),
+  ] },
+};
+const KD_COMMENTARY: Record<string, string> = {
+  nna: "Net New Money rose overall, but the gain is uneven: **APAC UHNW** and **Hong Kong** pulled NNA well above the bankwide trend (+USD 198m / +USD 121m unexpected), while **dual-banked clients in Geneva and Zurich** dragged it down by far more than the trend explains (−USD 171m / −USD 109m unexpected) — the integration-overlap cohort to defend first. Sustaining APAC momentum while stemming Swiss dual-banked outflows is the clearest path to the $200bn net-new-money ambition.",
+  inflow: "Gross inflows are driven by **APAC UHNW** and **Hong Kong**, which together contribute the bulk of the recent uplift and over-shoot the population trend — consistent with the post-integration push into Asia-Pacific wealth.",
+  outflow: "The recent rise in outflows is concentrated in **dual-banked (Apex + Summit) clients booked in Geneva and Zurich** — the integration-overlap cohort — which exceed the bankwide outflow trend by the widest margin and warrant immediate retention attention.",
+};
+function kdResult(metric: string): KeyDriversResult {
+  const t = KD_TABLES[metric] ?? KD_TABLES.nna;
+  const rows = [...t.rows].sort((a, b) => Math.abs(b.unexpected_difference_usd_m) - Math.abs(a.unexpected_difference_usd_m));
+  const ti = +rows.reduce((s, d) => s + d.metric_interest_usd_m, 0).toFixed(1);
+  const tr = +rows.reduce((s, d) => s + d.metric_reference_usd_m, 0).toFixed(1);
+  return {
+    metric, metric_label: t.label, direction: t.direction,
+    interest_period: "Most recent 6 months", reference_period: "Prior 6 months",
+    total_interest_usd_m: ti, total_reference_usd_m: tr, net_change_usd_m: +(ti - tr).toFixed(1),
+    drivers: rows, commentary: KD_COMMENTARY[metric] ?? KD_COMMENTARY.nna,
+  };
+}
+
+const KD_HIST_MONTHS = ["2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
+                        "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"];
+const KD_FC_MONTHS = ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"];
+
+const KD_DS = "raves-altostrat.FSI_POV";
+const KD_COL: Record<string, [string, string]> = {
+  nna: ["net_new_money_usd", "Net New Money"], inflow: ["inflow_usd", "Gross Inflows"], outflow: ["outflow_usd", "Gross Outflows"],
+};
+const KD_ALL_DIMS = ["segment_tier", "region", "booking_centre", "risk_profile", "banking"];
+const kdDimExpr = (n: string) => n === "banking" ? "IF(c.dual_banked, 'Dual-banked (Apex + Summit)', 'Single-bank')" : `c.${n}`;
+function kdWhere(pairs: { name: string; value: string }[]): string {
+  const parts = pairs.map((p) => p.name === "banking"
+    ? `c.dual_banked = ${p.value.toLowerCase().startsWith("dual") ? "TRUE" : "FALSE"}`
+    : `${kdDimExpr(p.name)} = '${p.value}'`);
+  return parts.join("\n     AND ") || "TRUE";
+}
+/** The real AI-function SQL behind each deep-dive stage, scoped to this segment. */
+function kdSqlBlock(metric: string, pairs: { name: string; value: string }[],
+                    recent: number, prior: number, good: boolean) {
+  const [col, label] = KD_COL[metric] ?? KD_COL.nna;
+  const where = kdWhere(pairs);
+  const subs = KD_ALL_DIMS.filter((d) => !pairs.some((p) => p.name === d));
+  const subSelect = subs.map((d) => `${kdDimExpr(d)} AS ${d}`).join(",\n            ");
+  const subList = `[${subs.map((d) => `'${d}'`).join(", ")}]`;
+  const segText = pairs.map((p) => p.value).join(" · ");
+  return {
+    anomalies:
+`-- WHAT HAPPENED · AI.DETECT_ANOMALIES — flag the anomalous months in this
+-- segment's monthly ${label} series (recent dip/spike vs its own history).
+SELECT month, metric AS ${col}, is_anomaly, anomaly_probability
+FROM AI.DETECT_ANOMALIES(
+  (SELECT TIMESTAMP_TRUNC(TIMESTAMP(f.month), MONTH) AS month,
+          SUM(f.${col}) AS metric
+   FROM \`${KD_DS}.client_flows\` f
+   JOIN \`${KD_DS}.clients\`  c USING (client_id)
+   WHERE ${where}
+     AND f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)
+   GROUP BY month),
+  data_col              => 'metric',
+  timestamp_col         => 'month',
+  anomaly_prob_threshold => 0.95)
+ORDER BY month;`,
+    drivers:
+`-- WHY IT HAPPENED · AI.KEY_DRIVERS — within this segment, rank the sub-segments
+-- driving the change (recent 6m = interest vs prior 6m = reference).
+SELECT * FROM AI.KEY_DRIVERS(
+  (SELECT ${subSelect || "c.segment_tier"},
+          f.${col} AS metric,
+          f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 6 MONTH) AS is_recent
+   FROM \`${KD_DS}.client_flows\` f
+   JOIN \`${KD_DS}.clients\`  c USING (client_id)
+   WHERE ${where}
+     AND f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)),
+  metric_col         => 'metric',
+  dimension_cols     => ${subList || "['segment_tier']"},
+  interest_label_col => 'is_recent',
+  top_k              => 10)
+ORDER BY ABS(unexpected_difference) DESC;`,
+    forecast:
+`-- WHAT'S NEXT · AI.FORECAST (TimesFM 2.5) — 6-month forward path of this
+-- segment's monthly ${label}, with a 90% prediction interval.
+SELECT forecast_timestamp, forecast_value,
+       prediction_interval_lower_bound, prediction_interval_upper_bound
+FROM AI.FORECAST(
+  (SELECT TIMESTAMP(f.month) AS month, SUM(f.${col}) AS v
+   FROM \`${KD_DS}.client_flows\` f
+   JOIN \`${KD_DS}.clients\`  c USING (client_id)
+   WHERE ${where}
+   GROUP BY month),
+  data_col         => 'v',
+  timestamp_col    => 'month',
+  model            => 'TimesFM 2.5',
+  horizon          => 6,
+  confidence_level => 0.9)
+ORDER BY forecast_timestamp;`,
+    prevention:
+`-- HOW TO ${good ? "SUSTAIN" : "PREVENT"} IT · AI.GENERATE — compliant actions grounded in the numbers.
+SELECT AI.GENERATE(
+  CONCAT('Recommend 3-4 concrete, compliant actions for a Apex Bank market head to ',
+         '${good ? "sustain" : "prevent and reverse"} the recent ${label} move for the ',
+         '"${segText}" segment. Recent 6m USD ${recent}m vs prior 6m USD ${prior}m. ',
+         'Tie to the Apex-Summit integration and the \$200bn net-new-money ambition.'),
+  connection_id => 'us-central1.vertex_conn',
+  endpoint      => 'gemini-2.5-flash').result AS recommended_actions;`,
+  };
+}
+
+function kdDrilldown(metric: string, label: string): DriverDrilldown {
+  const t = KD_TABLES[metric] ?? KD_TABLES.nna;
+  const d = t.rows.find((r) => r.label === label) ?? t.rows[0];
+  const segLower = d.label.toLowerCase();
+  const isDual = segLower.includes("dual-banked");
+  const isApac = segLower.includes("apac") || segLower.includes("hong kong") || segLower.includes("singapore");
+  const down = d.direction === "down";
+
+  // 12-month trend: prior-6 around prior/6, recent-6 around recent/6 (visible step)
+  const priorAvg = d.metric_reference_usd_m / 6;
+  const recentAvg = d.metric_interest_usd_m / 6;
+  const wig = (i: number) => 1 + (((i * 37) % 7) - 3) / 100; // ±3% deterministic
+  const trend = KD_HIST_MONTHS.map((ts, i) => {
+    const value = +((i < 6 ? priorAvg : recentAvg) * wig(i)).toFixed(2);
+    // AI.DETECT_ANOMALIES would flag recent months that broke from prior history
+    const is_anomaly = i >= 6 && (down ? value < priorAvg * 0.85 : value > priorAvg * 1.15);
+    return { ts, value, is_anomaly };
+  });
+
+  // forecast: continue the recent run-rate; if it's a bad move (down NNA / up
+  // outflow) the unmanaged trajectory keeps deteriorating, bands widen.
+  const slope = (recentAvg - priorAvg) / 6;
+  const forecast = KD_FC_MONTHS.map((ts, i) => {
+    const yhat = +(recentAvg + slope * (i + 1) * 0.6).toFixed(2);
+    const spread = Math.abs(yhat) * (0.07 + i * 0.015);
+    return { ts, yhat, lo: +(yhat - spread).toFixed(2), hi: +(yhat + spread).toFixed(2) };
+  });
+
+  // RCA factors — sum roughly to the difference, tailored to the segment
+  const diff = d.difference_usd_m;
+  const factors: { factor: string; impact_usd_m: number; detail: string }[] = isDual
+    ? [
+        { factor: "Integration-overlap attrition", impact_usd_m: +(diff * 0.52).toFixed(1),
+          detail: "Dual-banked clients consolidating away from the former Summit relationship as the platforms merge — duplicated mandates and fee-schedule overlap." },
+        { factor: "Fee & pricing harmonisation", impact_usd_m: +(diff * 0.28).toFixed(1),
+          detail: "Repricing to the unified Apex schedule triggered partial withdrawals among price-sensitive Swiss-booked clients." },
+        { factor: "Advisor reassignment", impact_usd_m: +(diff * 0.20).toFixed(1),
+          detail: "Relationship-manager changes during migration reduced engagement and prompted balance transfers." },
+      ]
+    : isApac
+    ? [
+        { factor: "New-client acquisition", impact_usd_m: +(diff * 0.49).toFixed(1),
+          detail: "Onboarding of UHNW entrepreneurs in Hong Kong & Singapore following the integrated APAC platform launch." },
+        { factor: "Mandate up-tiering", impact_usd_m: +(diff * 0.31).toFixed(1),
+          detail: "Existing clients moving from advisory into discretionary and private-markets mandates." },
+        { factor: "FX / market tailwind", impact_usd_m: +(diff * 0.20).toFixed(1),
+          detail: "Favourable currency moves and equity performance lifted reported flows for the cohort." },
+      ]
+    : [
+        { factor: "Allocation shift", impact_usd_m: +(diff * 0.46).toFixed(1),
+          detail: "Net reallocation between cash and invested mandates within the segment." },
+        { factor: "Seasonality", impact_usd_m: +(diff * 0.30).toFixed(1),
+          detail: "Recurring half-year funding/liquidity pattern typical for this cohort." },
+        { factor: "Pricing & engagement", impact_usd_m: +(diff * 0.24).toFixed(1),
+          detail: "Changes in fee sensitivity and advisor contact frequency over the period." },
+      ];
+
+  const narrative = down
+    ? `**${d.label}** ${metric === "outflow" ? "outflows rose" : "flows fell"} from $${Math.abs(d.metric_reference_usd_m)}m to $${Math.abs(d.metric_interest_usd_m)}m over the recent six months (${(d.relative_difference * 100).toFixed(1)}%), about $${Math.abs(d.unexpected_difference_usd_m)}m worse than the bankwide trend would predict. The move is driven mainly by ${factors[0].factor.toLowerCase()}${isDual ? " — the classic post-merger consolidation risk where clients who held both Apex and Summit relationships rationalise down to one provider" : ""}. This is a controllable, relationship-led decline rather than a market effect, which is why it warrants direct intervention.`
+    : `**${d.label}** ${metric === "outflow" ? "outflows" : "flows"} grew from $${d.metric_reference_usd_m}m to $${d.metric_interest_usd_m}m (${(d.relative_difference * 100).toFixed(1)}%), roughly $${d.unexpected_difference_usd_m}m above the bankwide trend. The uplift is led by ${factors[0].factor.toLowerCase()}${isApac ? ", reflecting the integrated APAC platform gaining share in the fastest-growing wealth pool" : ""}. Protecting and replicating this momentum is the priority.`;
+
+  const prevention = down
+    ? [
+        { title: isDual ? "Launch a dual-banked retention sprint" : "Targeted retention outreach",
+          detail: isDual
+            ? "Auto-enrol every dual-banked client in this segment into the Flight-Risk Sentinel save-play queue; senior-advisor calls within 10 business days, consolidated cross-bank pricing on the table."
+            : "Prioritise advisor outreach to the highest-balance accounts in this segment with a portfolio health-check offer.",
+          owner: "Regional Market Head" },
+        { title: "Pre-empt fee-driven attrition",
+          detail: "Apply grandfathered or blended pricing for migrating clients for 12 months; flag any repricing >15bps for relationship-manager review before it lands.",
+          owner: "Pricing & Revenue Mgmt" },
+        { title: "Stabilise relationship continuity",
+          detail: "Freeze advisor reassignments for at-risk dual-banked clients during migration; assign a named transition contact per household.",
+          owner: "COO / Integration Office" },
+        { title: "Add an early-warning monitor",
+          detail: "Stand up a weekly AI.KEY_DRIVERS + attrition watch on this segment so an unexpected-difference breach pages the desk before the quarter closes.",
+          owner: "Data & Analytics" },
+      ]
+    : [
+        { title: "Codify and scale the winning play",
+          detail: "Document the acquisition + up-tiering motion behind this cohort and roll it out to comparable segments in adjacent booking centres.",
+          owner: "Regional Market Head" },
+        { title: "Protect the gains",
+          detail: "Lock in newly onboarded UHNW clients with onboarding-plus journeys and private-markets access before competitors respond.",
+          owner: "Product & Advisory" },
+        { title: "Reinforce capacity",
+          detail: "Ensure advisor and booking-centre capacity keeps pace with the inflow so service quality does not dilute the momentum.",
+          owner: "COO" },
+      ];
+
+  const good = (d.direction === "up") === (metric !== "outflow");
+  const sql = kdSqlBlock(metric, d.segment, d.metric_interest_usd_m, d.metric_reference_usd_m, good);
+
+  return {
+    metric, metric_label: t.label, label: d.label, segment: d.segment, direction: d.direction,
+    what_happened: {
+      recent_usd_m: d.metric_interest_usd_m, prior_usd_m: d.metric_reference_usd_m,
+      difference_usd_m: d.difference_usd_m, relative_difference: d.relative_difference,
+      unexpected_difference_usd_m: d.unexpected_difference_usd_m,
+      contribution: d.contribution, apriori_support: d.apriori_support, trend,
+      ai_function: "AI.DETECT_ANOMALIES", sql: sql.anomalies,
+    },
+    rca: { narrative, factors, ai_function: "AI.KEY_DRIVERS", sql: sql.drivers },
+    whats_next: {
+      forecast,
+      commentary: down
+        ? `Left unmanaged, ${d.label} stays below trend through H2 — an estimated $${Math.abs(forecast.reduce((s, f) => s + f.yhat, 0)).toFixed(0)}m over the next six months, widening confidence bands as attrition compounds. The retention actions below are modelled to arrest and reverse the slide.`
+        : `On current trajectory ${d.label} continues above trend into H2, contributing an estimated $${forecast.reduce((s, f) => s + f.yhat, 0).toFixed(0)}m over the next six months — a meaningful step toward the $200bn NNA ambition if capacity keeps pace.`,
+      ai_function: "AI.FORECAST", sql: sql.forecast,
+    },
+    prevention: { actions: prevention, ai_function: "AI.GENERATE", sql: sql.prevention },
+  };
+}
 
 const NAMES = ["Hans Müller", "Marie Dubois", "Luca Rossi", "Sophie Favre",
   "Wei Chen", "Anya Keller", "Pierre Moreau", "Elena Bernasconi",
@@ -159,6 +422,8 @@ export const mock = {
     return { metric, history, forecast,
       commentary: `${metric.toUpperCase()} is projected to grow steadily over the next 12 months, with momentum strongest in APAC and GWM — consistent with the $200bn net-new-money ambition. Confidence bands widen beyond month six.` };
   },
+  keyDrivers: (metric: string): KeyDriversResult => kdResult(metric),
+  keyDriverDrilldown: (metric: string, label: string): DriverDrilldown => kdDrilldown(metric, label),
   research: (q: string): DocHit[] => [
     { document_id: "DOC_000012", title: "Apex CIO Research — Private credit allocation for UHNW portfolios", doc_type: "cio_research", snippet: "Our CIO view favours a structural allocation to private credit for qualified UHNW and family-office clients, citing attractive risk-adjusted yields…", score: 0.92, gcs_uri: "gs://fsi_pov/raw/documents/DOC_000012.pdf" },
     { document_id: "DOC_000044", title: "Apex CIO Research — Global asset allocation: balanced positioning into 2026", doc_type: "cio_research", snippet: "Our balanced multi-asset stance holds a modest overweight to global equities funded from cash, neutral duration in high-grade bonds…", score: 0.85, gcs_uri: "gs://fsi_pov/raw/documents/DOC_000044.pdf" },

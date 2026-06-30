@@ -15,11 +15,54 @@ from ..config import settings
 router = APIRouter(prefix="/api")
 
 
+_LOGO_EXTS = {".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif"}
+
+
+def _logo_dir_and_default() -> tuple[str | None, str | None]:
+    """Resolve BANK_LOGO_PATH to (directory, configured_file) against several
+    bases so a relative path like './Logo/x.png' works regardless of the
+    process working directory: as-given (cwd), the backend dir, repo root."""
+    path = settings.BANK_LOGO_PATH
+    if not path:
+        return None, None
+    if os.path.isabs(path):
+        return os.path.dirname(path), path
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # app/routers -> app -> backend
+    repo_root = os.path.dirname(backend_dir)
+    for base in (os.getcwd(), backend_dir, repo_root):
+        cand = os.path.normpath(os.path.join(base, path))
+        if os.path.isfile(cand):
+            return os.path.dirname(cand), cand
+    # file not found yet — still derive the intended directory (repo-root based)
+    cand = os.path.normpath(os.path.join(repo_root, path))
+    return os.path.dirname(cand), cand
+
+
+def _resolve_logo_path() -> str | None:
+    """Serve the MOST RECENTLY MODIFIED image in the logo directory, so dropping
+    a new file into the Logo folder (any name/extension) is picked up on the next
+    request. Falls back to the exact configured file if the dir has no images."""
+    logo_dir, default = _logo_dir_and_default()
+    if not logo_dir:
+        return None
+    newest, newest_mtime = None, -1.0
+    if os.path.isdir(logo_dir):
+        for e in os.scandir(logo_dir):
+            if e.is_file() and os.path.splitext(e.name)[1].lower() in _LOGO_EXTS:
+                m = e.stat().st_mtime
+                if m > newest_mtime:
+                    newest, newest_mtime = e.path, m
+    if newest:
+        return newest
+    return default if default and os.path.isfile(default) else None
+
+
 @router.get("/logo")
 def get_logo():
-    path = settings.BANK_LOGO_PATH
-    if path and os.path.exists(path) and os.path.isfile(path):
-        return FileResponse(path)
+    path = _resolve_logo_path()
+    if path:
+        # no-cache so a refresh always re-validates and picks up a replaced image
+        return FileResponse(path, headers={"Cache-Control": "no-cache, must-revalidate"})
     from fastapi import HTTPException
     raise HTTPException(status_code=404, detail="Logo not configured")
 
@@ -82,6 +125,16 @@ def retention_campaign(client_id: str):
 @router.get("/forecast")
 def forecast(metric: str = "nna", division: str = "all", region: str = "all"):
     return services.forecast(metric, division, region)
+
+
+@router.get("/key-drivers")
+def key_drivers(metric: str = "nna"):
+    return services.key_drivers(metric)
+
+
+@router.get("/key-drivers/drilldown")
+def key_drivers_drilldown(metric: str = "nna", seg: str = ""):
+    return services.key_drivers_drilldown(metric, seg)
 
 
 @router.get("/research/search")

@@ -1,7 +1,7 @@
 import { mock } from "./mock";
 import type {
   Kpis, Source, UnifyResult, ClientHit, NbaResult, RetentionScore,
-  ForecastResult, DocHit, Segment, AgentStep, AskBlock,
+  ForecastResult, KeyDriversResult, DriverDrilldown, DocHit, Segment, AgentStep, AskBlock,
 } from "./types";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
@@ -41,6 +41,12 @@ export const api = {
     USE_MOCKS ? Promise.resolve(mock.retentionCampaign(clientId)) : get(`/api/retention/campaign/${clientId}`),
   forecast: (metric: string, division = "all", region = "all"): Promise<ForecastResult> =>
     USE_MOCKS ? Promise.resolve(mock.forecast(metric)) : get(`/api/forecast?metric=${metric}&division=${division}&region=${region}`),
+  keyDrivers: (metric: string): Promise<KeyDriversResult> =>
+    USE_MOCKS ? Promise.resolve(mock.keyDrivers(metric)) : get(`/api/key-drivers?metric=${metric}`),
+  keyDriverDrilldown: (metric: string, label: string, segment: { name: string; value: string }[]): Promise<DriverDrilldown> =>
+    USE_MOCKS
+      ? Promise.resolve(mock.keyDriverDrilldown(metric, label))
+      : get(`/api/key-drivers/drilldown?metric=${metric}&seg=${encodeURIComponent(segment.map((s) => `${s.name}:${s.value}`).join("|"))}`),
   research: (q: string): Promise<DocHit[]> =>
     USE_MOCKS ? Promise.resolve(mock.research(q)) : get(`/api/research/search?q=${encodeURIComponent(q)}`),
   researchAnswer: (q: string): Promise<any> =>

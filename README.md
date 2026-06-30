@@ -36,6 +36,7 @@ It runs in two modes:
 | **Next-Best-Action** | What should this household hold next? | **Property graph** (GQL `MATCH`) + `VECTOR_SEARCH` look-alikes |
 | **Flight-Risk Sentinel** | Which clients will we lose — and the campaign to save them? | **TabularFM/BQML** attrition → click a client → **GQL** household 360 + holdings/flows → **Gemini** drafts a targeted campaign + ready-to-send email |
 | **Forecast Room** | Where are AuM / NNA / revenue heading? | `AI.FORECAST` (**TimesFM 2.5**) — zero-training, multi-series |
+| **Driver Lens** | *Why* did Net New Money / flows move? | `AI.KEY_DRIVERS` — automatic key-driver analysis: ranks the client segments (tier × region × booking centre × risk × banking) that most over-/under-shot the bankwide trend, recent 6m vs prior 6m |
 | **Ask Helix** | Let anyone query the estate in English | **Conversational Analytics agent** (real) — streams thinking → text + table + chart + SQL |
 | **Research Brain** | Answer from CIO / KYC / suitability docs | Autonomous embeddings + `AI.SEARCH` grounded RAG |
 | **Network Guard** | Where is the financial-crime risk? | **Property graph** multi-hop GQL — click a pattern (structuring / UBO / cross-bank) → its subgraph + records |
@@ -81,13 +82,14 @@ flowchart BT
         C5["BigFrames<br/>KMeans clustering"]
         C6["TabularFM<br/>attrition model"]
         C7["AI.FORECAST<br/>TimesFM 2.5"]
+        C7b["AI.KEY_DRIVERS<br/><i>key-driver analysis</i>"]
         C8["AI.GENERATE<br/>Gemini 2.5 Flash"]
         C9["AI.SEARCH<br/>grounded RAG"]
         C10["Conversational<br/>Analytics"]
         C11["ADK + A2A<br/>DE ⇄ DS agents"]
     end
 
-    BQ --> C1 & C2 & C5 & C6 & C7 & C9 & C10
+    BQ --> C1 & C2 & C5 & C6 & C7 & C7b & C9 & C10
     C2 --> C3
     C2 --> C4
 
@@ -113,6 +115,7 @@ flowchart BT
     C6 --> U3
     C8 --> U3
     C7 --> U4
+    C7b --> U4
     C10 --> U5
     C9 --> U6
     C2 --> U6
@@ -134,7 +137,7 @@ flowchart BT
 
     class S1,S2,S3 src;
     class GCS,BQ store;
-    class C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11 cap;
+    class C1,C2,C3,C4,C5,C6,C7,C7b,C8,C9,C10,C11 cap;
     class U1,U2,U3,U4,U5,U6,U7,U8,U9 biz;
     class APP app;
 ```
@@ -318,6 +321,7 @@ Apex Bank/
 │   ├── setup_bq.sql            models · embeddings · vector index · property graph · KPIs
 │   ├── setup_apex_attrition.sql attrition model + scoring + drivers + pipeline
 │   ├── setup_apex_forecast.sql  AI.FORECAST (TimesFM) marts
+│   ├── setup_fsi_key_drivers.sql AI.KEY_DRIVERS — flow key-driver analysis marts
 │   ├── build_segments.py       real BQML KMeans + Gemini segment naming
 │   ├── deploy_cloudrun.sh
 │   └── env.example
@@ -325,7 +329,7 @@ Apex Bank/
 ├── dataform/                   Dataform pipeline (lineage) + deploy_dataform.py (REST push)
 ├── backend/                    FastAPI (routers, bq.py, services, agents/, de_agent.py,
 │                               conversational.py, fixtures)
-└── frontend/                   React 18 + TS + Vite + Tailwind (10 routes)
+└── frontend/                   React 18 + TS + Vite + Tailwind (11 routes)
 ```
 
 ---

@@ -453,6 +453,288 @@ def forecast(metric: str, division: str, region: str) -> dict:
     return {"metric": metric, "history": hist, "forecast": fc, "commentary": commentary}
 
 
+# ---------------------------------------------------------------------------
+# AI.KEY_DRIVERS — "from what to why" key-driver analysis over the flow metrics.
+# Metric configs map a UI metric id to the numeric flow column + label/sign.
+# ---------------------------------------------------------------------------
+_KD_METRICS = {
+    "nna":     ("net_new_money_usd", "Net New Money",  "higher"),
+    "inflow":  ("inflow_usd",        "Gross Inflows",  "higher"),
+    "outflow": ("outflow_usd",       "Gross Outflows", "lower"),
+}
+_KD_DIMS = ["segment_tier", "region", "booking_centre", "risk_profile", "banking"]
+# AI.KEY_DRIVERS rejects negative metric values unless min_apriori_support = 0.
+# NNA is a signed net flow → use support 0; gross in/out-flows are non-negative.
+_KD_PARAMS = {
+    "nna": "min_apriori_support => 0.0",
+    "inflow": "top_k => 20",
+    "outflow": "top_k => 20",
+}
+
+
+def _kd_label(drivers: Any) -> tuple[str, list[dict]]:
+    """Turn the AI.KEY_DRIVERS `drivers` array — a list of 'name=value' strings
+    (e.g. ['region=APAC','banking=Single-bank'], or ['all'] for the overall
+    population) — into a readable label + name/value pairs."""
+    import json as _json
+    if isinstance(drivers, str):
+        try:
+            drivers = _json.loads(drivers)
+        except Exception:
+            return drivers, []
+    pairs: list[dict] = []
+    for d in drivers or []:
+        s = str(d)
+        if s == "all":          # the overall-population row, not a segment
+            continue
+        if "=" in s:
+            name, _, val = s.partition("=")
+            pairs.append({"name": name.strip(), "value": val.strip()})
+        else:
+            pairs.append({"name": "", "value": s})
+    label = " · ".join(p["value"] for p in pairs if p["value"]) or "(overall)"
+    return label, pairs
+
+
+def _kd_query_sql(metric: str) -> str:
+    """The AI.KEY_DRIVERS statement for a metric (used to build the cache table
+    and as a live fallback if the cache table is absent)."""
+    col, _, _ = _KD_METRICS.get(metric, _KD_METRICS["nna"])
+    return f"""
+      SELECT * FROM AI.KEY_DRIVERS(
+        (SELECT c.segment_tier, c.region, c.booking_centre, c.risk_profile,
+                IF(c.dual_banked, 'Dual-banked (Apex + Summit)', 'Single-bank') AS banking,
+                f.{col},
+                f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 6 MONTH) AS is_recent
+         FROM `{DS}.client_flows` f
+         JOIN `{DS}.clients` c USING (client_id)
+         WHERE f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)),
+        metric_col         => '{col}',
+        dimension_cols     => {_KD_DIMS},
+        interest_label_col => 'is_recent',
+        {_KD_PARAMS.get(metric, _KD_PARAMS['nna'])},
+        enable_pruning     => TRUE)
+    """
+
+
+def key_drivers(metric: str = "nna") -> dict:
+    """Ranked driver segments for a flow metric (recent 6m = interest vs prior
+    6m = reference) plus a Gemini narrative. Reads the cached `key_drivers_<metric>`
+    table (built by infra/setup_fsi_key_drivers.sql); falls back to running
+    AI.KEY_DRIVERS live if the table is absent. services.py falls back to fixtures."""
+    col, label, direction = _KD_METRICS.get(metric, _KD_METRICS["nna"])
+    select = ("SELECT TO_JSON_STRING(drivers) AS drivers_json, metric_interest, "
+              "metric_reference, difference, relative_difference, unexpected_difference, "
+              "contribution, apriori_support FROM ")
+    try:  # cached table — fast path
+        rows = _rows(f"{select} `{DS}.key_drivers_{metric}` "
+                     "ORDER BY ABS(unexpected_difference) DESC LIMIT 40")
+    except Exception:  # live fallback
+        rows = _rows(f"{select} ({_kd_query_sql(metric)}) "
+                     "ORDER BY ABS(unexpected_difference) DESC LIMIT 40")
+
+    drivers: list[dict] = []
+    total_interest = total_reference = 0.0
+    for r in rows:
+        lbl, pairs = _kd_label(r["drivers_json"])
+        if not pairs:           # skip the overall ['all'] row
+            continue
+        mi = float(r["metric_interest"] or 0) / 1e6
+        mr = float(r["metric_reference"] or 0) / 1e6
+        total_interest += mi
+        total_reference += mr
+        diff = float(r["difference"] or 0) / 1e6
+        drivers.append({
+            "label": lbl, "segment": pairs,
+            "metric_interest_usd_m": round(mi, 2),
+            "metric_reference_usd_m": round(mr, 2),
+            "difference_usd_m": round(diff, 2),
+            "relative_difference": round(float(r["relative_difference"] or 0), 4),
+            "unexpected_difference_usd_m": round(float(r["unexpected_difference"] or 0) / 1e6, 2),
+            "contribution": round(float(r["contribution"] or 0), 4),
+            "apriori_support": round(float(r["apriori_support"] or 0), 4),
+            "direction": "up" if diff >= 0 else "down",
+        })
+        if len(drivers) >= 12:
+            break
+
+    net = total_interest - total_reference
+    top = drivers[:6]
+    commentary = gen_text(
+        f"You are a Apex Bank CFO analytics copilot. In 2-3 sentences explain WHY {label} moved "
+        f"between the prior 6 months and the most recent 6 months, using ONLY these AI.KEY_DRIVERS "
+        f"segments (USD m; relative_difference is a fraction; unexpected_difference is the move "
+        f"beyond the population trend). Call out the segments that most over- or under-shot the "
+        f"trend and tie it to the Apex–Summit integration and the $200bn net-new-money ambition "
+        f"where natural. Be specific and compliant.\nMetric: {label}. Net change USD {net:,.0f}m. "
+        f"Drivers: {top}")
+    return {
+        "metric": metric, "metric_label": label, "direction": direction,
+        "interest_period": "Most recent 6 months", "reference_period": "Prior 6 months",
+        "total_interest_usd_m": round(total_interest, 1),
+        "total_reference_usd_m": round(total_reference, 1),
+        "net_change_usd_m": round(net, 1),
+        "drivers": drivers, "commentary": commentary,
+    }
+
+
+_KD_DIM_EXPR = {
+    "segment_tier": "c.segment_tier", "region": "c.region",
+    "booking_centre": "c.booking_centre", "risk_profile": "c.risk_profile",
+    "banking": "IF(c.dual_banked, 'Dual-banked (Apex + Summit)', 'Single-bank')",
+}
+_KD_RECENT = "DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 6 MONTH)"
+_KD_WINDOW = "DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)"
+
+
+def _kd_seg_filter(seg: str):
+    """Parse 'name:value|name:value' into (where_sql, params, pairs, names)."""
+    pairs, where, params = [], [], {}
+    for i, tok in enumerate((seg or "").split("|")):
+        if ":" not in tok:
+            continue
+        name, _, value = tok.partition(":")
+        name, value = name.strip(), value.strip()
+        if name not in _KD_DIM_EXPR:
+            continue
+        pairs.append({"name": name, "value": value})
+        if name == "banking":
+            where.append("c.dual_banked = TRUE" if value.lower().startswith("dual") else "c.dual_banked = FALSE")
+        else:
+            params[f"v{i}"] = value
+            where.append(f"{_KD_DIM_EXPR[name]} = @v{i}")
+    return (" AND ".join(where) or "TRUE"), params, pairs, [p["name"] for p in pairs]
+
+
+def key_drivers_drilldown(metric: str = "nna", seg: str = "") -> dict:
+    """Deep-dive for one driver segment: what happened (monthly trend), why
+    (sub-dimension RCA breakdown + Gemini narrative), what's next (AI.FORECAST),
+    and how to prevent/sustain it (Gemini actions). Best-effort live; services.py
+    falls back to fixtures on error."""
+    col, label, _ = _KD_METRICS.get(metric, _KD_METRICS["nna"])
+    where, params, pairs, names = _kd_seg_filter(seg)
+    seg_label = " · ".join(p["value"] for p in pairs) or "(overall)"
+    base = (f"FROM `{DS}.client_flows` f JOIN `{DS}.clients` c USING (client_id) "
+            f"WHERE ({where}) AND f.month >= {_KD_WINDOW}")
+
+    # 1) exact stats — reuse the ranked list so the deep-dive matches the row
+    stats = {}
+    try:
+        for d in key_drivers(metric)["drivers"]:
+            if {(s["name"], s["value"]) for s in d["segment"]} == {(p["name"], p["value"]) for p in pairs}:
+                stats = d
+                break
+    except Exception:
+        pass
+
+    # 2) what happened — 12-month monthly trend (USD m)
+    trend = [{"ts": r["ts"], "value": float(r["value"])} for r in _rows(
+        f"SELECT FORMAT_DATE('%Y-%m', f.month) ts, ROUND(SUM(f.{col})/1e6, 2) value "
+        f"{base} GROUP BY ts ORDER BY ts", params)]
+    recent = round(sum(p["value"] for p in trend[-6:]), 2)
+    prior = round(sum(p["value"] for p in trend[:-6]), 2)
+    diff = round(recent - prior, 2)
+    rel = round(diff / abs(prior), 4) if prior else 0.0
+    direction = stats.get("direction") or ("up" if diff >= 0 else "down")
+    down = direction == "down"
+
+    # 2b) flag anomalous months — live AI.DETECT_ANOMALIES, else heuristic
+    anom_months: set[str] = set()
+    try:
+        for r in _rows(
+            f"SELECT FORMAT_TIMESTAMP('%Y-%m', month) ts FROM AI.DETECT_ANOMALIES("
+            f"  (SELECT TIMESTAMP_TRUNC(TIMESTAMP(f.month), MONTH) AS month, SUM(f.{col}) AS metric "
+            f"   {base} GROUP BY month), "
+            f"  data_col => 'metric', timestamp_col => 'month', anomaly_prob_threshold => 0.95) "
+            f"WHERE is_anomaly", params):
+            anom_months.add(r["ts"])
+    except Exception:
+        pass
+    prior_avg = (prior / 6) if trend else 0
+    for i, p in enumerate(trend):
+        p["is_anomaly"] = (p["ts"] in anom_months) if anom_months else (
+            i >= len(trend) - 6 and (p["value"] < prior_avg * 0.85 if down else p["value"] > prior_avg * 1.15))
+
+    # 3) why — break the change down by a sub-dimension not fixed by the segment
+    factors = []
+    sub = next((d for d in _KD_DIMS if d not in names), None)
+    if sub:
+        try:
+            for r in _rows(
+                f"SELECT {_KD_DIM_EXPR[sub]} AS k, ROUND((SUM(IF(f.month >= {_KD_RECENT}, f.{col}, 0)) "
+                f"- SUM(IF(f.month < {_KD_RECENT}, f.{col}, 0)))/1e6, 1) AS impact "
+                f"{base} GROUP BY k ORDER BY ABS(impact) DESC LIMIT 3", params):
+                factors.append({"factor": f"{sub.replace('_', ' ')}: {r['k']}",
+                                "impact_usd_m": float(r["impact"]), "detail": ""})
+        except Exception:
+            pass
+
+    # 4) what's next — AI.FORECAST the segment's monthly series (USD m)
+    forecast = []
+    try:
+        forecast = [{"ts": r["ts"], "yhat": float(r["yhat"]), "lo": float(r["lo"]), "hi": float(r["hi"])}
+                    for r in _rows(
+            f"SELECT FORMAT_TIMESTAMP('%Y-%m', forecast_timestamp) ts, "
+            f"  ROUND(forecast_value/1e6, 2) yhat, "
+            f"  ROUND(prediction_interval_lower_bound/1e6, 2) lo, "
+            f"  ROUND(prediction_interval_upper_bound/1e6, 2) hi "
+            f"FROM AI.FORECAST("
+            f"  (SELECT TIMESTAMP(f.month) AS month, SUM(f.{col}) AS v {base} GROUP BY month), "
+            f"  data_col => 'v', timestamp_col => 'month', model => 'TimesFM 2.5', "
+            f"  horizon => 6, confidence_level => 0.9) ORDER BY ts", params)]
+    except Exception:
+        pass
+
+    # 5) narrative + factor details + prevention — one structured Gemini call
+    favourable_up = metric != "outflow"
+    good = (direction == "up") == favourable_up
+    gj = gen_json(
+        "You are a Apex Bank CFO analytics copilot. Given this key-driver deep-dive, return ONLY a JSON object "
+        "with keys: narrative (2-3 sentences, root-cause of the move; use **bold** for the segment), "
+        "factor_details (object mapping each factor name to a one-sentence cause), "
+        "next_commentary (1-2 sentences on the forecast path), "
+        "prevention (array of 3-4 objects {title, detail, owner} — concrete, compliant actions to "
+        f"{'sustain' if good else 'prevent/reverse'} this). Tie to the Apex–Summit integration and the "
+        "$200bn net-new-money ambition where natural.\n"
+        f"Metric: {label}. Segment: {seg_label}. Recent6m USD {recent}m vs Prior6m USD {prior}m "
+        f"({rel*100:.1f}%). Unexpected-vs-trend USD {stats.get('unexpected_difference_usd_m', diff)}m. "
+        f"Direction: {'favourable' if good else 'unfavourable'}. Sub-driver factors: {factors}.")
+    for f in factors:
+        f["detail"] = (gj.get("factor_details", {}) or {}).get(f["factor"], "") or \
+            "A contributing sub-segment of the overall move."
+    prevention = gj.get("prevention") or [
+        {"title": "Targeted relationship action",
+         "detail": "Prioritise advisor outreach to the highest-value accounts in this segment.",
+         "owner": "Regional Market Head"}]
+
+    recent_disp = stats.get("metric_interest_usd_m", recent)
+    prior_disp = stats.get("metric_reference_usd_m", prior)
+    from .fixtures import data as _fx
+    sql = _fx.kd_sql_block(metric, pairs, recent_disp, prior_disp, good)
+
+    return {
+        "metric": metric, "metric_label": label, "label": seg_label,
+        "segment": pairs, "direction": direction,
+        "what_happened": {
+            "recent_usd_m": recent_disp,
+            "prior_usd_m": prior_disp,
+            "difference_usd_m": stats.get("difference_usd_m", diff),
+            "relative_difference": stats.get("relative_difference", rel),
+            "unexpected_difference_usd_m": stats.get("unexpected_difference_usd_m", diff),
+            "contribution": stats.get("contribution", 0.0),
+            "apriori_support": stats.get("apriori_support", 0.0),
+            "trend": trend,
+            "ai_function": "AI.DETECT_ANOMALIES", "sql": sql["anomalies"],
+        },
+        "rca": {"narrative": gj.get("narrative") or f"**{seg_label}** moved {rel*100:.1f}% recent-vs-prior.",
+                "factors": factors, "ai_function": "AI.KEY_DRIVERS", "sql": sql["drivers"]},
+        "whats_next": {"forecast": forecast,
+                       "commentary": gj.get("next_commentary") or "Forecast continues the recent run-rate.",
+                       "ai_function": "AI.FORECAST", "sql": sql["forecast"]},
+        "prevention": {"actions": prevention, "ai_function": "AI.GENERATE", "sql": sql["prevention"]},
+    }
+
+
 def research_search(q: str) -> list[dict]:
     sql = f"""
     SELECT base.document_id, base.title, base.doc_type, base.gcs_uri,

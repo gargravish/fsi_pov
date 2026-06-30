@@ -77,6 +77,32 @@ class ForecastResult(BaseModel):
     commentary: str
 
 
+class KeyDriver(BaseModel):
+    label: str
+    segment: list[dict[str, str]]
+    metric_interest_usd_m: float
+    metric_reference_usd_m: float
+    difference_usd_m: float
+    relative_difference: float
+    unexpected_difference_usd_m: float
+    contribution: float
+    apriori_support: float
+    direction: str
+
+
+class KeyDriversResult(BaseModel):
+    metric: str
+    metric_label: str
+    direction: str
+    interest_period: str
+    reference_period: str
+    total_interest_usd_m: float
+    total_reference_usd_m: float
+    net_change_usd_m: float
+    drivers: list[KeyDriver]
+    commentary: str
+
+
 class DocHit(BaseModel):
     document_id: str
     title: str

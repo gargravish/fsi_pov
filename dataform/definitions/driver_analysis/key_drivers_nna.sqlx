@@ -1,0 +1,26 @@
+config {
+  type: "table",
+  schema: "FSI_POV",
+  name: "key_drivers_nna",
+  description: "From-what-to-why: AI.KEY_DRIVERS explains the recent-vs-prior Net New Money move by client segment × region × booking centre × risk × banking relationship.",
+  tags: ["driver_analysis"]
+}
+
+-- Recent 6 months (interest) vs prior 6 months (reference), per client-month NNA
+-- enriched with the unified Client 360 dimensions.
+SELECT * FROM AI.KEY_DRIVERS(
+  (SELECT
+     c.segment_tier, c.region, c.booking_centre, c.risk_profile,
+     IF(c.dual_banked, 'Dual-banked (Apex + Summit)', 'Single-bank') AS banking,
+     f.net_new_money_usd,
+     f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 6 MONTH) AS is_recent
+   FROM ${ref("client_flows")} f
+   JOIN ${ref("clients")} c USING (client_id)
+   WHERE f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 12 MONTH)),
+  metric_col          => 'net_new_money_usd',
+  dimension_cols      => ['segment_tier', 'region', 'booking_centre', 'risk_profile', 'banking'],
+  interest_label_col  => 'is_recent',
+  -- NNA is a signed net flow; AI.KEY_DRIVERS needs min_apriori_support = 0 to allow negatives.
+  min_apriori_support => 0,
+  enable_pruning      => TRUE
+)

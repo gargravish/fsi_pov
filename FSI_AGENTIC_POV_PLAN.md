@@ -63,6 +63,7 @@ This grounds the synthetic data and the narrative so the demo feels authentic to
 | 2 | **Grow share‑of‑wallet (NNA)** | "Next‑Best‑Action" for advisors across the household / family‑office graph | **BigQuery Graph (GQL)** + **VECTOR_SEARCH** look‑alikes + **AI.GENERATE** |
 | 3 | **Protect the asset base** | "Flight‑Risk Sentinel" predicts client attrition & NNA outflow + drafts the save | **TabularFM** classification + **AI.GENERATE** |
 | 4 | **Plan toward $200bn NNA/yr** | "Forecast Room" projects AuM, NNA and revenue by division × region | **AI.FORECAST (TimesFM 2.5)** |
+| 4b | **Explain the move (what→why)** | "Driver Lens" pinpoints which client segments drove a flow metric's change | **AI.KEY_DRIVERS** (key‑driver analysis) |
 | 5 | **Democratise analytics** | "Ask Helix" — chat with the whole estate in plain English | **Conversational Analytics API (Gemini Data Analytics agent)** |
 | 6 | **Advisor & research productivity** | "Research Brain" — grounded answers from CIO research / KYC / suitability docs | **AI.PARSE_DOCUMENT** + **Autonomous embeddings** + **AI.SEARCH** (RAG) |
 | 7 | **Financial‑crime defence** | "Network Guard" — layering, structuring, circular flows, UBO risk | **BigQuery Graph** multi‑hop GQL |
@@ -124,6 +125,7 @@ Everything AI/ML happens **inside BigQuery** through one Cloud‑resource connec
 | **VECTOR_SEARCH + CREATE VECTOR INDEX** | ANN similarity at scale (`TREE_AH`, `COSINE`) | Entity resolution, client look‑alikes for NBA |
 | **CREATE PROPERTY GRAPH + GQL (`GRAPH_TABLE`, `MATCH`)** | Graph modelling + multi‑hop traversal | Household/family‑office NBA, AML/UBO networks |
 | **AI.FORECAST (TimesFM 2.5)** | Zero‑training multi‑series time‑series forecasting | AuM / NNA / revenue forecasting |
+| **AI.KEY_DRIVERS** | Automatic key‑driver analysis — ranks the dimensional segments behind a metric change between two groups (`unexpected_difference` vs the population trend) | "Driver Lens": why NNA / inflows / outflows moved |
 | **TabularFM** | Zero‑tuning classification/regression foundation model | Client attrition & NNA‑outflow risk |
 | **BigFrames** | pandas/scikit‑learn API executing in BigQuery | Behavioral segmentation, feature pipelines |
 | **Conversational Analytics API** | NL data agent (text/tables/charts + SQL) over BQ | "Ask Helix" |
@@ -332,6 +334,23 @@ SELECT * FROM AI.FORECAST(
 ```
 Repeat for `ts_aum_monthly` and `ts_revenue_monthly`. **Surface:** `/forecast` — metric/division/region/horizon selectors, history + forecast + confidence band, AI "what's driving it" commentary, portfolio roll‑up vs the $200bn NNA ambition.
 
+### 7.4b "From What to Why" — Key‑Driver Analysis — "Driver Lens" (AI.KEY_DRIVERS)
+The Forecast Room shows *what* the flow metrics are doing; **AI.KEY_DRIVERS** explains *why* one moved — automatically ranking the dimensional segments most responsible for a change between two groups, with no `GROUP BY` sweeps, hand‑built self‑joins or a bespoke ML pipeline. We compare the **recent 6 months (interest group) vs the prior 6 months (reference group)** of per‑client monthly flows, enriched with the unified Client 360 dimensions.
+```sql
+SELECT * FROM AI.KEY_DRIVERS(
+  (SELECT c.segment_tier, c.region, c.booking_centre, c.risk_profile,
+          IF(c.dual_banked,'Dual-banked (Apex + Summit)','Single-bank') AS banking,
+          f.net_new_money_usd,
+          f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(),MONTH), INTERVAL 6 MONTH) AS is_recent
+   FROM FSI_POV.client_flows f JOIN FSI_POV.clients c USING (client_id)
+   WHERE f.month >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(),MONTH), INTERVAL 12 MONTH)),
+  metric_col => 'net_new_money_usd',
+  dimension_cols => ['segment_tier','region','booking_centre','risk_profile','banking'],
+  interest_label_col => 'is_recent', top_k => 20, enable_pruning => TRUE
+);
+```
+Repeat with `metric_col => 'inflow_usd'` / `'outflow_usd'`. The headline column is **`unexpected_difference`** — the part of a segment's move that the *bankwide* trend does **not** explain — so the demo ranks on it: APAC UHNW / Hong Kong over‑shoot the trend upward, while **dual‑banked (Apex + Summit) Swiss clients** (the integration‑overlap cohort) drag NNA down by more than expected — the exact cohort the Flight‑Risk Sentinel then defends. **Build:** `infra/setup_fsi_key_drivers.sql` (+ Dataform `definitions/driver_analysis/`); the live backend calls `AI.KEY_DRIVERS` directly in `backend/app/bq.py:key_drivers`. **Surface:** `/drivers` — metric selector (NNA / inflows / outflows), ranked driver segments with recent‑vs‑prior, relative change, contribution, segment size and the unexpected‑difference bar, plus a Gemini "why it moved" narrative.
+
 ### 7.5 Conversational Analytics — "Ask Helix" (Gemini Data Analytics agent)
 Create a **DataAgent** scoped to `FSI_POV.*` (+ optionally the property graph); stream NL questions; return text + tables + Vega charts + the generated SQL. *(Live: the demo is wired to a real Conversational Analytics data agent — display name `FSI_POV`, id `agent_a61c018d-fc8f-45b1-ad42-2f70f83cd597`, location `us` — via the `:chat` streaming endpoint; the backend maps its `systemMessage` chunks — FINAL_RESPONSE text, `generatedSql`, `result`, Vega `chart`, follow-ups — into the UI block format. Set `CA_AGENT_ID` / `CA_LOCATION` in `backend/.env`.)* **Demo questions:** *"Which booking centre grew NNA fastest last quarter?"* · *"Top 10 UHNW clients by outflow risk."* · *"Compare discretionary vs advisory mandate AuM by region."* · *"Which households hold equities but no discretionary mandate?"* (graph‑backed). **Surface:** `/ask` — chat thread, rendered charts/tables, "show SQL" expander, "pin to Home".
 
@@ -386,6 +405,7 @@ This is the centerpiece the user explicitly wants. An **ADK Orchestrator** recei
 /nba         Next-Best-Action (graph + look-alikes)
 /retention   Flight-Risk Sentinel (TabularFM attrition)
 /forecast    Forecast Room (TimesFM: AuM / NNA / revenue)
+/drivers     Driver Lens (AI.KEY_DRIVERS: why a flow metric moved)
 /ask         Ask Helix (Conversational Analytics chat)
 /research    Research Brain (document intelligence)
 /network     Network Guard (AML / UBO graph)
