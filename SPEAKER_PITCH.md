@@ -12,7 +12,8 @@
 > *"You're merging the two largest pools of private wealth on earth. Your data lives in two
 > of everything. FSI Helix turns that into your biggest asset — a single, governed, AI-native
 > lakehouse in BigQuery where collaborating agents drive net-new-money, retention, cross-sell,
-> forecasting and financial-crime defence, with no data movement and no separate ML platform."*
+> forecasting, root-cause "why did it move" analysis and financial-crime defence, with no data
+> movement and no separate ML platform."*
 
 ## The 60-second elevator version (open with this)
 
@@ -24,8 +25,9 @@
 > *FSI Helix unifies the Apex Bank and Summit Bank estate into one governed Client 360 in BigQuery —
 > and then, in the same place the data lives, runs the AI: it finds the dual-banked clients,
 > predicts who's about to walk and drafts the save, tells every advisor the next best action
-> for each household, forecasts net-new-money toward your $200bn ambition, answers any question
-> in plain English, and watches for financial-crime networks. No data movement, no separate ML
+> for each household, forecasts net-new-money toward your $200bn ambition — and when a number
+> moves, tells you exactly which client segments drove it and what to do about it — answers any
+> question in plain English, and watches for financial-crime networks. No data movement, no separate ML
 > platform — and a team of AI agents that do the analytical legwork while your people decide.
 > Let me show you, on a synthetic copy of your own world."*
 
@@ -35,6 +37,7 @@
 |---|---|---|---|
 | **Integration** | Years of manual reconciliation across two estates | AI maps schemas & resolves dual-banked clients automatically | End-2026 completion |
 | **Net new money** | Cross-sell trapped in advisor heads & siloed data | Graph + look-alike NBA surfaces the next mandate per household | **$200bn NNA/yr by 2028** |
+| **Explain the move (what→why)** | When NNA dips, root-cause takes weeks of manual GROUP-BY slicing | One click ranks the segments driving it, detects the anomaly, forecasts the path & drafts the fix | **$200bn NNA/yr by 2028** |
 | **Retention** | Flight risk spotted *after* the outflow | Attrition predicted 60–90 days early + an AI-drafted save play | Protect ~$5tn AuM |
 | **Productivity** | Analysts wait days for a BI request; advisors hunt through 60k docs | Plain-English answers + cited research in seconds | **<70% cost/income** |
 | **Risk** | Financial-crime patterns hide across booking centres | Multi-hop graph surfaces structuring / UBO networks | Regulatory confidence |
@@ -51,7 +54,7 @@
 
 ---
 
-## The demo flow (10 beats)
+## The demo flow (11 beats)
 
 1. **Home — the vision.** "From two banks and two of everything to one agentic intelligence
    layer." Point at the live KPIs: 40k clients unified, ~22% dual-banked, NNA tracking toward
@@ -74,19 +77,28 @@
 5. **Forecast Room — plan the growth.** NNA by division/region, 12-month horizon with confidence
    bands, tracking the $200bn ambition; AI explains the drivers. *Capability: AI.FORECAST / TimesFM 2.5 — zero training.*
 
-6. **Ask Helix — democratise analytics.** Type *"Which booking centre grew NNA fastest?"* → get a
+6. **Driver Lens — from what to why.** The forecast shows NNA is soft — but *where, and why?*
+   Driver Lens ranks the client segments that most over-/under-shot the bankwide trend. Click the
+   top one (e.g. **dual-banked Swiss clients** — the integration-overlap cohort) to open a
+   four-lens deep-dive, each backed by a real BigQuery AI function with the **executed SQL on
+   screen**: **AI.DETECT_ANOMALIES** flags the anomalous months on the trend, **AI.KEY_DRIVERS**
+   ranks the sub-segments responsible, **AI.FORECAST** projects the path, and **AI.GENERATE** drafts
+   the preventive actions. One screen, "what happened → why → what's next → what to do."
+   *Capability: AI.KEY_DRIVERS + AI.DETECT_ANOMALIES + AI.FORECAST + AI.GENERATE.*
+
+7. **Ask Helix — democratise analytics.** Type *"Which booking centre grew NNA fastest?"* → get a
    chart, a table, and the **generated SQL**. No BI bottleneck. *Capability: Conversational Analytics.*
 
-7. **Research Brain — advisor productivity.** Search *"CIO view on private credit for UHNW"* →
+8. **Research Brain — advisor productivity.** Search *"CIO view on private credit for UHNW"* →
    cited passages from parsed documents + a grounded answer. *Capability: autonomous embeddings + AI.SEARCH RAG.*
 
-8. **Network Guard — defend the bank.** Surface a structuring ring and a UBO-risk cluster as an
+9. **Network Guard — defend the bank.** Surface a structuring ring and a UBO-risk cluster as an
    interactive subgraph with an AI anomaly summary. *Capability: BigQuery Graph multi-hop GQL.*
 
-9. **Segment Studio — know the client.** Behavioural micro-segments ("Globally-Mobile UHNW
-   Entrepreneurs", "Conservative Swiss Retirees") named by Gemini. *Capability: BigFrames KMeans + AI.GENERATE.*
+10. **Segment Studio — know the client.** Behavioural micro-segments ("Globally-Mobile UHNW
+    Entrepreneurs", "Conservative Swiss Retirees") named by Gemini. *Capability: BigFrames KMeans + AI.GENERATE.*
 
-10. **Agent Console — the operating model.** Set a goal: *"Which UHNW clients will we lose next
+11. **Agent Console — the operating model.** Set a goal: *"Which UHNW clients will we lose next
     quarter, and why?"* → watch the **Data Scientist agent ask the Data Engineering agent over
     A2A** for features, then score and explain. *Capability: ADK orchestrator + A2A + BigQuery MCP.*
 
@@ -94,8 +106,9 @@
 
 ## The close
 
-> *"Everything you just saw runs **inside BigQuery** — embeddings, the graph, forecasting, the
-> attrition model, the document index — reasoned over by agents on governed, unified data. No
+> *"Everything you just saw runs **inside BigQuery** — embeddings, the graph, forecasting,
+> key-driver and anomaly analysis, the attrition model, the document index — reasoned over by
+> agents on governed, unified data. No
 > data movement. No separate vector DB, graph DB, feature store, or model-serving stack to run.
 > That's the Google Cloud Agentic Data Platform: the place your integrated data and your AI
 > belong together."*
@@ -108,5 +121,8 @@
   governed structured data to whichever assistant surface you choose.
 - **"TabularFM / TimesFM maturity?"** TimesFM forecasting is live here; TabularFM ships with a
   GA boosted-tree default and the same scoring contract, so nothing in the UI changes.
+- **"Is the driver analysis real?"** Yes — `AI.KEY_DRIVERS`, `AI.FORECAST` and `AI.DETECT_ANOMALIES`
+  are warehouse-native augmented-analytics functions running live on `raves-altostrat`; the
+  deep-dive shows the exact SQL it ran. Drivers are cached into tables so the screen is instant.
 - **"Governance?"** All synthetic, no PII. Column-level policy tags, the A2A trace, and
   warehouse-native lineage are the governance story.
