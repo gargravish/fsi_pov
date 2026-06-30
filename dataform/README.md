@@ -13,12 +13,14 @@ Dataform repository in the project:
 
 ```
 declarations (curated Client 360 + raw two-bank sources + attrition_model)
-  clients · accounts · holdings · transactions · attrition_scoring · attrition_model · ts_nna_monthly
+  clients · accounts · holdings · transactions · client_flows · attrition_scoring · attrition_model · ts_nna_monthly
         │
         ├─► client_features ─► client_kmeans (BQML KMEANS) ─► client_segments ─► client_segments_summary
         │                                                                          (Gemini names added by
         │                                                                           infra/build_segments.py)
         ├─► forecast_nna  (AI.FORECAST / TimesFM 2.5)
+        ├─► key_drivers_nna  (AI.KEY_DRIVERS — "from what to why", driver_analysis/)
+        │     (also key_drivers_inflow / key_drivers_outflow via infra/setup_fsi_key_drivers.sql)
         └─► attrition_scores  (ML.PREDICT on attrition_model)
 ```
 
@@ -32,8 +34,9 @@ to the lineage.
 
 - **Real, traceable BigQuery execution:** `client_features`, `client_kmeans`
   (a BQML model), `client_segments`, `client_segments_summary`, `forecast_nna`,
-  `attrition_model`/`attrition_scores`, the embeddings tables, the `client_graph`
-  property graph, and the Conversational Analytics agent. Open any of them in BQ.
+  `key_drivers_nna`/`_inflow`/`_outflow` (AI.KEY_DRIVERS — the Driver Lens "from
+  what to why"), `attrition_model`/`attrition_scores`, the embeddings tables, the
+  `client_graph` property graph, and the Conversational Analytics agent. Open any of them in BQ.
 - **The Data Engineering agent is the REAL Google Cloud Data Engineering Agent.**
   The Agent Console delegates to it over A2A
   (`geminidataanalytics.googleapis.com/.../agents/dataengineeringagent:message:stream`),
@@ -56,4 +59,11 @@ To materialise the segmentation tables (model + summary with Gemini names):
 
 ```bash
 python ../infra/build_segments.py
+```
+
+To materialise the Driver Lens key-driver tables (AI.KEY_DRIVERS):
+
+```bash
+bq --project_id=raves-altostrat --location=us-central1 query \
+   --use_legacy_sql=false < ../infra/setup_fsi_key_drivers.sql
 ```
